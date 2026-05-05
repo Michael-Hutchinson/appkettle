@@ -3,35 +3,62 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { loadKettleConfig } from "./config.js";
+import { loadKettleConfig, type KettleConfig } from "./config.js";
 import { KettleClient } from "./client.js";
 import { discoverKettle } from "./discovery.js";
 
 const log = (...args: unknown[]): void => console.error("[appkettle]", ...args);
 
 let client: KettleClient | null = null;
+let cachedConfig: KettleConfig | null = null;
 
-const ensureClient = async (): Promise<KettleClient> => {
-  if (client) return client;
-  const cfg = await loadKettleConfig();
+const tryConnect = async (cfg: KettleConfig): Promise<KettleClient> => {
   log(`Connecting to ${cfg.imei} at ${cfg.ip}:6002`);
   const c = new KettleClient(cfg);
   c.on("error", (e) => log("client error:", e.message));
   c.on("connect", () => log("connected"));
   c.on("close", () => log("disconnected (will auto-reconnect)"));
   c.connect();
-  await new Promise<void>((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error("connect timeout")), 8000);
-    c.once("connect", () => {
-      clearTimeout(t);
-      resolve();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error("connect timeout")), 8000);
+      c.once("connect", () => {
+        clearTimeout(t);
+        resolve();
+      });
+      c.once("error", (e) => {
+        clearTimeout(t);
+        reject(e);
+      });
     });
-    c.once("error", (e) => {
-      clearTimeout(t);
-      reject(e);
-    });
-  });
-  await c.whenReady();
+    await c.whenReady();
+    return c;
+  } catch (e) {
+    c.close();
+    throw e;
+  }
+};
+
+const ensureClient = async (): Promise<KettleClient> => {
+  if (client) return client;
+
+  // 1. Try cached/env config first
+  const initial = cachedConfig ?? (await loadKettleConfig());
+  try {
+    const c = await tryConnect(initial);
+    cachedConfig = initial;
+    client = c;
+    return c;
+  } catch (e) {
+    log(`Initial connect failed (${e instanceof Error ? e.message : e}); rediscovering...`);
+  }
+
+  // 2. Fall back to UDP discovery (kettle's IP may have changed)
+  const discovered = await discoverKettle();
+  const cfg: KettleConfig = { ip: discovered.ip, imei: discovered.imei };
+  log(`Discovered kettle at ${cfg.ip}, retrying`);
+  const c = await tryConnect(cfg);
+  cachedConfig = cfg;
   client = c;
   return c;
 };
@@ -129,6 +156,7 @@ server.registerTool(
       // Force reconnect on next call so we pick up any IP change.
       if (client) client.close();
       client = null;
+      cachedConfig = { ip: k.ip, imei: k.imei };
       return k;
     }),
 );
