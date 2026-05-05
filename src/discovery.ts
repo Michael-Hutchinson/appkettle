@@ -68,17 +68,27 @@ export const discoverKettle = (timeoutMs = 8000, broadcast?: string): Promise<Di
 
     sock.on("error", (e) => finish(e));
 
+    let sendTimer: NodeJS.Timeout | null = null;
     sock.on("listening", () => {
       sock.setBroadcast(true);
       let sends = 0;
-      const id = setInterval(() => {
+      sendTimer = setInterval(() => {
+        if (resolved) {
+          if (sendTimer) clearInterval(sendTimer);
+          return;
+        }
         for (const t of targets) sock.send(probe, PORT, t, () => {});
-        if (++sends >= 6 || resolved) clearInterval(id);
+        if (++sends >= 6) {
+          if (sendTimer) clearInterval(sendTimer);
+        }
       }, 1500);
     });
 
     sock.bind(PORT);
-    setTimeout(() => finish(new Error(`Discovery timeout after ${timeoutMs}ms`)), timeoutMs);
+    setTimeout(() => {
+      if (sendTimer) clearInterval(sendTimer);
+      finish(new Error(`Discovery timeout after ${timeoutMs}ms`));
+    }, timeoutMs);
   });
 
 // CLI entry: `npm run discover`
