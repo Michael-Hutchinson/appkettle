@@ -14,6 +14,7 @@
     "dev": "tsx src/mcp.ts",
     "cli": "tsx src/cli.ts",
     "discover": "tsx src/discovery.ts",
+    "test": "node --import tsx --test src/*.test.ts",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.ts\""
   },
