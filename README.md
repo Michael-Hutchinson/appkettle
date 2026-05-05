@@ -42,20 +42,32 @@ The MCP server runs over stdio, so Claude Code/Desktop spawns it as a subprocess
 
 After `npm run build`:
 
-**Claude Code** — add to `~/.claude/settings.json`:
+**Claude Code** — register via the CLI (canonical method):
+
+```bash
+claude mcp add-json appkettle '{
+  "type": "stdio",
+  "command": "node",
+  "args": ["/absolute/path/to/appkettle/dist/mcp.js"],
+  "env": { "KETTLE_IP": "192.168.1.202", "KETTLE_IMEI": "GD0-12900-7a00" }
+}' -s user
+```
+
+Verify with `claude mcp list` — should show `appkettle: ✓ Connected`.
+
+**Claude Desktop** — same shape in `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "appkettle": {
       "command": "node",
-      "args": ["/Users/michaelhutchinson/Documents/webapps/appkettle/dist/mcp.js"]
+      "args": ["/absolute/path/to/appkettle/dist/mcp.js"],
+      "env": { "KETTLE_IP": "192.168.1.202", "KETTLE_IMEI": "GD0-12900-7a00" }
     }
   }
 }
 ```
-
-**Claude Desktop** — same shape in `~/Library/Application Support/Claude/claude_desktop_config.json`.
 
 Restart Claude. Tools available:
 
