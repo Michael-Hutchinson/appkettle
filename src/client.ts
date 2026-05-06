@@ -3,6 +3,7 @@
 import net from "node:net";
 import { EventEmitter } from "node:events";
 import {
+  KettleConnectError,
   KettleConnectionClosedError,
   KettleNackError,
   KettleNotConnectedError,
@@ -52,11 +53,24 @@ interface PendingResponse {
   timer: NodeJS.Timeout;
 }
 
+/** Strongly-typed event payloads emitted by KettleClient. */
+export interface KettleClientEvents {
+  connect: [];
+  ready: [];
+  close: [];
+  error: [Error];
+  status: [KettleStatus];
+  reconnecting: [{ delayMs: number }];
+  /** Fired when an Across reply arrives that has no matching pending request. Useful for debug logging. */
+  unmatched: [AcrossReply];
+}
+
 const COMMAND_TIMEOUT_MS = 5000;
+const CONNECT_TIMEOUT_MS = 8000;
 const KEEP_ALIVE_FRAME = "##000bKeepConnect&&";
 const KEEP_ALIVE_INTERVAL_MS = 25_000;
 
-export class KettleClient extends EventEmitter {
+export class KettleClient extends EventEmitter<KettleClientEvents> {
   readonly ip: string;
   readonly imei: string;
   readonly port: number;
@@ -111,9 +125,40 @@ export class KettleClient extends EventEmitter {
 
   close(): void {
     this.wantOpen = false;
-    this.cleanup();
+    // End the socket BEFORE cleanup() — cleanup() nulls this.sock as part of clearing state,
+    // so calling end() afterwards would be a no-op and leave the TCP connection hanging.
     this.sock?.end();
-    this.sock = null;
+    this.cleanup();
+  }
+
+  /**
+   * Connect and resolve once the kettle's first frame arrives (the "ready" signal).
+   * The timeout covers both phases — TCP connect AND first inbound frame — so a server
+   * that accepts the socket but never speaks won't hang the call.
+   * Rejects with KettleConnectError on timeout, or the underlying error on socket failure.
+   */
+  async connectAndWait(timeoutMs = CONNECT_TIMEOUT_MS): Promise<void> {
+    this.connect();
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const settle = (fn: () => void): void => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        this.off("error", onError);
+        fn();
+      };
+      const onError = (err: Error): void => settle(() => reject(err));
+      const timer = setTimeout(
+        () =>
+          settle(() =>
+            reject(new KettleConnectError(`Connect timeout to ${this.ip}:${this.port} after ${timeoutMs}ms`)),
+          ),
+        timeoutMs,
+      );
+      this.once("error", onError);
+      this.whenReady().then(() => settle(() => resolve()));
+    });
   }
 
   /** Latest status from heartbeat or explicit poll. Null until first message arrives. */
@@ -281,6 +326,8 @@ export class KettleClient extends EventEmitter {
       const [pending] = this.pending.splice(idx, 1);
       clearTimeout(pending.timer);
       pending.resolve(reply);
+    } else {
+      this.emit("unmatched", reply);
     }
   }
 

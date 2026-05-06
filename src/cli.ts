@@ -77,11 +77,9 @@ const main = async (): Promise<void> => {
   console.error(`Connecting to kettle ${cfg.imei} at ${cfg.ip}:6002 ...`);
   const client = new KettleClient(cfg);
   client.on("error", (e) => console.error("client error:", e.message));
-  client.connect();
 
   try {
-    await new Promise((r) => client.once("connect", r));
-    await client.whenReady();
+    await client.connectAndWait();
 
     switch (cmd) {
       case "status": {
