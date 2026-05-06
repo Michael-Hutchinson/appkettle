@@ -4,7 +4,7 @@
   "description": "Local control bridge for the AppKettle smart kettle (defunct vendor). Reverse-engineered Across protocol over TCP/6002. Exposes an MCP server.",
   "type": "module",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "author": "Michael Hutchinson",
   "homepage": "https://github.com/Michael-Hutchinson/appkettle#readme",
   "repository": {
