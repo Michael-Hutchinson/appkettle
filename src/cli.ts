@@ -7,6 +7,8 @@
 //   tsx src/cli.ts stop
 //   tsx src/cli.ts standby
 //   tsx src/cli.ts discover
+//   tsx src/cli.ts setup       # interactive Wi-Fi pairing (must be on kettle's AP)
+import * as readline from "node:readline/promises";
 import { loadKettleConfig } from "./config.js";
 import { KettleClient } from "./client.js";
 import { discoverKettle } from "./discovery.js";
@@ -16,7 +18,7 @@ const die = (msg: string): never => {
   process.exit(1);
 };
 
-const cmd = process.argv[2] ?? die("usage: status | boil [temp] [kw] | stop | standby | discover");
+const cmd = process.argv[2] ?? die("usage: status | boil [temp] [kw] | stop | standby | discover | setup");
 
 if (cmd === "discover") {
   const k = await discoverKettle();
@@ -55,6 +57,51 @@ try {
       await client.standby();
       console.log("OK — standby");
       break;
+    case "setup": {
+      console.error("");
+      console.error("This walks the kettle through joining a Wi-Fi network.");
+      console.error("Your laptop must be connected to the kettle's pairing AP (e.g. AppKettle-XXXX).");
+      console.error("");
+
+      const networks = await client.scanWifi();
+      if (networks.length === 0) {
+        console.error("Kettle saw no Wi-Fi networks. Move it closer to the router and retry.");
+        break;
+      }
+
+      console.log("Networks the kettle can see:");
+      networks.forEach((n, i) => {
+        console.log(`  [${i + 1}] ${n.ssid || "(hidden)"}  signal=${n.signal}  bssid=${n.essidHex}`);
+      });
+
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+      try {
+        const choice = await rl.question("\nNumber of the network to join: ");
+        const idx = Number(choice) - 1;
+        if (!Number.isInteger(idx) || idx < 0 || idx >= networks.length) {
+          die(`Invalid choice: ${choice}`);
+        }
+        const target = networks[idx];
+        const password = await rl.question(`Password for ${target.ssid}: `);
+
+        console.error("\nSending Wi-Fi credentials to kettle...");
+        try {
+          await client.setUpperWifi(target.essidHex, password);
+          console.log("OK — kettle accepted credentials.");
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (/Timeout|Connection closed|Not connected/.test(msg)) {
+            console.log("Kettle dropped the connection — that's expected; it's bouncing onto your network.");
+          } else {
+            throw e;
+          }
+        }
+        console.log("\nReconnect your laptop to your home Wi-Fi, then run `npm run cli discover` to confirm.");
+      } finally {
+        rl.close();
+      }
+      break;
+    }
     default:
       die(`unknown command: ${cmd}`);
   }

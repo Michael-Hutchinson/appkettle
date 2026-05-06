@@ -4,18 +4,22 @@ import net from "node:net";
 import { EventEmitter } from "node:events";
 import {
   buildWire,
+  cmdGetSearchWifiLists,
   cmdGetStatus,
-  cmdSetStartBoil,
-  cmdSetStopBoil,
   cmdSetKettleStandby,
+  cmdSetStartBoil,
   cmdSetStartKeepWarm,
+  cmdSetStopBoil,
   cmdSetStopKeepWarm,
+  cmdSetUpperWifi,
   extractData3,
   parseAcross,
+  parseScanList,
   parseStatus,
   type AcrossReply,
   type BoilArgs,
   type KettleStatus,
+  type ScanEntry,
 } from "./protocol.js";
 
 export interface KettleClientOpts {
@@ -136,6 +140,20 @@ export class KettleClient extends EventEmitter {
 
   async standby(): Promise<void> {
     const reply = await this.send(cmdSetKettleStandby(this.nextSerial()));
+    this.assertOk(reply);
+  }
+
+  /** Ask the kettle (in pairing mode) to scan nearby Wi-Fi networks, sorted by signal desc. */
+  async scanWifi(): Promise<ScanEntry[]> {
+    const reply = await this.send(cmdGetSearchWifiLists(this.nextSerial()));
+    const r = parseScanList(reply.content);
+    if (!r.ok) throw new Error(`Wi-Fi scan failed: ${r.error}`);
+    return [...r.entries].sort((a, b) => b.signal - a.signal);
+  }
+
+  /** Tell the kettle to join a Wi-Fi network. essidHex is the BSSID from a scan entry. */
+  async setUpperWifi(essidHex: string, password: string): Promise<void> {
+    const reply = await this.send(cmdSetUpperWifi(this.nextSerial(), essidHex, password));
     this.assertOk(reply);
   }
 
