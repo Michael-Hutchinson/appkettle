@@ -145,8 +145,42 @@ during setup — Wi-Fi credentials can't be pushed over the home network.
 
    It scans nearby networks, lets you pick one, prompts for the password, and
    sends `SET_UPPER_WIFI` (API `3E`).
+
 4. Reconnect your laptop to your home Wi-Fi.
 5. Confirm the kettle joined: `npm run cli discover`.
+
+## Project structure
+
+```
+src/
+  protocol/                  pure wire format, no I/O
+    hex.ts                   hex helpers, byte stuffing, checksum
+    frames.ts                Across frame build/parse, JSON envelope
+    commands.ts              API codes + command builders
+    parsers.ts               status + scan-list parsers
+    index.ts                 public barrel
+  client.ts                  TCP client (typed events, exponential reconnect, status caching)
+  discovery.ts               UDP/15103 broadcast probe
+  config.ts                  env-or-discover loader
+  env.ts                     zod-validated startup config
+  errors.ts                  KettleError class hierarchy
+  logger.ts                  leveled stderr logger
+  cli.ts                     entry: status / boil / stop / standby / setup / discover
+  mcp.ts                     entry: stdio MCP server
+  mcp-http.ts                entry: HTTP MCP server (with /healthz)
+  mcp-tools.ts               shared KettleManager + tool registration
+  *.test.ts                  unit + integration tests (32 total)
+.github/
+  workflows/ci.yml           lint → typecheck → test on every push
+  dependabot.yml             weekly npm + monthly actions
+.husky/pre-commit            lint-staged: ESLint + Prettier on staged files
+Dockerfile                   multi-stage Alpine build, runs the HTTP server
+```
+
+Three concentric layers: `protocol/` is pure functions, `client.ts` adds TCP +
+state, the entry points (`cli`, `mcp`, `mcp-http`) wire everything to a transport.
+Adding a new transport (e.g. WebSocket) means a new `mcp-*.ts` file that calls
+`buildKettleServer(manager)` from `mcp-tools.ts` — nothing else has to change.
 
 ## Protocol notes
 
