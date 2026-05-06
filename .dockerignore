@@ -1,0 +1,14 @@
+node_modules
+dist
+.git
+.github
+.claude
+.husky
+*.md
+LICENSE
+.gitignore
+.dockerignore
+Dockerfile
+eslint.config.js
+.prettierrc
+.prettierignore
