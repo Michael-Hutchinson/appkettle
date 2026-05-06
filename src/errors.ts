@@ -48,6 +48,9 @@ export class KettleNotReadyError extends KettleError {
   }
 }
 
+/** Thrown when the kettle replies but the payload doesn't match what we expected. */
+export class KettleProtocolError extends KettleError {}
+
 /** True for the error classes that mean "the connection went away mid-flight". */
 export const isConnectionLossError = (e: unknown): boolean =>
   e instanceof KettleTimeoutError ||

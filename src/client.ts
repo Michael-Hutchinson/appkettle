@@ -7,9 +7,11 @@ import {
   KettleNackError,
   KettleNotConnectedError,
   KettleNotReadyError,
+  KettleProtocolError,
   KettleTimeoutError,
 } from "./errors.js";
 import {
+  API,
   buildWire,
   cmdGetSearchWifiLists,
   cmdGetStatus,
@@ -26,6 +28,7 @@ import {
   parseStatus,
   type AcrossReply,
   type BoilArgs,
+  type FrameOpts,
   type KettleStatus,
   type ScanEntry,
 } from "./protocol/index.js";
@@ -36,7 +39,6 @@ export interface KettleClientOpts {
   port?: number;
   reconnectInitialMs?: number;
   reconnectMaxMs?: number;
-  heartbeatIntervalMs?: number;
 }
 
 /** Next reconnect delay: double the current, capped at max. Pure for testability. */
@@ -51,6 +53,8 @@ interface PendingResponse {
 }
 
 const COMMAND_TIMEOUT_MS = 5000;
+const KEEP_ALIVE_FRAME = "##000bKeepConnect&&";
+const KEEP_ALIVE_INTERVAL_MS = 25_000;
 
 export class KettleClient extends EventEmitter {
   readonly ip: string;
@@ -87,10 +91,10 @@ export class KettleClient extends EventEmitter {
     this.sock = sock;
 
     sock.on("connect", () => {
-      sock.write("##000bKeepConnect&&");
+      sock.write(KEEP_ALIVE_FRAME);
       this.keepAliveTimer = setInterval(() => {
-        if (sock.writable) sock.write("##000bKeepConnect&&");
-      }, 25_000);
+        if (sock.writable) sock.write(KEEP_ALIVE_FRAME);
+      }, KEEP_ALIVE_INTERVAL_MS);
       this.emit("connect");
     });
 
@@ -121,7 +125,7 @@ export class KettleClient extends EventEmitter {
   async pollStatus(): Promise<KettleStatus> {
     const reply = await this.send(cmdGetStatus(this.nextSerial()));
     const s = parseStatus(reply.content);
-    if (!s) throw new Error(`Unparseable status: ${reply.content}`);
+    if (!s) throw new KettleProtocolError(`Unparseable status: ${reply.content}`);
     this.updateStatus(s);
     return s;
   }
@@ -168,7 +172,7 @@ export class KettleClient extends EventEmitter {
   async scanWifi(): Promise<ScanEntry[]> {
     const reply = await this.send(cmdGetSearchWifiLists(this.nextSerial()));
     const r = parseScanList(reply.content);
-    if (!r.ok) throw new Error(`Wi-Fi scan failed: ${r.error}`);
+    if (!r.ok) throw new KettleProtocolError(`Wi-Fi scan failed: ${r.error}`);
     return [...r.entries].sort((a, b) => b.signal - a.signal);
   }
 
@@ -222,7 +226,7 @@ export class KettleClient extends EventEmitter {
     if (ack !== "C8") throw new KettleNackError(reply.api, ack);
   }
 
-  private send(frame: { api: string; content?: string; serial: number; prefix?: string; msgUnique?: string }): Promise<AcrossReply> {
+  private send(frame: FrameOpts): Promise<AcrossReply> {
     if (!this.sock || !this.sock.writable) return Promise.reject(new KettleNotConnectedError());
     const wire = buildWire(this.imei, frame);
     return new Promise<AcrossReply>((resolve, reject) => {
@@ -266,7 +270,7 @@ export class KettleClient extends EventEmitter {
       this.emit("ready");
     }
 
-    if (reply.api === "36") {
+    if (reply.api === API.GET_STATUS) {
       const s = parseStatus(reply.content);
       if (s) this.updateStatus(s);
     }

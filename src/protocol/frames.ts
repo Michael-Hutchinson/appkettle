@@ -78,7 +78,8 @@ export const parseAcross = (data3Hex: string): AcrossReply | null => {
 };
 
 // Extract data3 hex blob from a wire frame (utility for callers parsing raw socket bytes).
-export const extractData3 = (wireFrame: string): string | null => {
-  const m = wireFrame.match(/"data3":"([0-9a-fA-F]+)"/);
+// Loose regex; works because data3 is pure hex and the JSON has no escape sequences.
+export const extractData3 = (wire: string): string | null => {
+  const m = wire.match(/"data3":"([0-9a-fA-F]+)"/);
   return m ? m[1] : null;
 };
