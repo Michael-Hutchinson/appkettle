@@ -94,7 +94,26 @@ const handleSessionRequest = async (req: Request, res: Response): Promise<void> 
 app.get("/mcp", handleSessionRequest);
 app.delete("/mcp", handleSessionRequest);
 
-app.listen(port, host, () => {
+const httpServer = app.listen(port, host, () => {
   log.info(`MCP HTTP server ready on http://${host}:${port}/mcp`);
   if (!authToken) log.warn("MCP_AUTH_TOKEN not set — endpoint is unauthenticated");
 });
+
+const shutdown = async (signal: string): Promise<void> => {
+  log.info(`received ${signal}, draining sessions and closing kettle connection`);
+  // Stop accepting new HTTP connections.
+  httpServer.close();
+  // Close active MCP sessions so clients see a clean disconnect.
+  for (const t of Object.values(transports)) {
+    try {
+      await t.close();
+    } catch (e) {
+      log.warn("transport close error:", e instanceof Error ? e.message : e);
+    }
+  }
+  // Drop the TCP connection to the kettle.
+  manager.reset();
+  process.exit(0);
+};
+process.once("SIGINT", () => void shutdown("SIGINT"));
+process.once("SIGTERM", () => void shutdown("SIGTERM"));
