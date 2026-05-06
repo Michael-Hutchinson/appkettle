@@ -41,7 +41,9 @@ export const discoverKettle = (timeoutMs = 8000, broadcast?: string): Promise<Di
       resolved = true;
       try {
         sock.close();
-      } catch {}
+      } catch {
+        // already closed
+      }
       if (err) reject(err);
       else if (k) resolve(k);
     };
