@@ -6,6 +6,7 @@ import { KettleClient } from "./client.js";
 import { loadKettleConfig, type KettleConfig } from "./config.js";
 import { discoverKettle } from "./discovery.js";
 import { type Logger } from "./logger.js";
+import { VERSION } from "./version.js";
 
 /**
  * Owns the single KettleClient shared across MCP tool invocations and the cached config.
@@ -27,7 +28,9 @@ export class KettleManager {
       this.cachedConfig = initial;
       return this.client;
     } catch (e) {
-      this.log.warn(`Initial connect failed (${e instanceof Error ? e.message : e}); rediscovering...`);
+      this.log.warn(
+        `Initial connect failed (${e instanceof Error ? e.message : e}); rediscovering...`,
+      );
     }
 
     const discovered = await discoverKettle();
@@ -51,8 +54,17 @@ export class KettleManager {
   }
 
   /** Snapshot for /healthz. Doesn't trigger a connection; returns whatever's cached. */
-  snapshot(): { connected: boolean; ip: string | null; lastSeenAt: string | null } {
-    if (!this.client) return { connected: false, ip: this.cachedConfig?.ip ?? null, lastSeenAt: null };
+  snapshot(): {
+    connected: boolean;
+    ip: string | null;
+    lastSeenAt: string | null;
+  } {
+    if (!this.client)
+      return {
+        connected: false,
+        ip: this.cachedConfig?.ip ?? null,
+        lastSeenAt: null,
+      };
     const { updatedAt } = this.client.getCachedStatus();
     return {
       connected: true,
@@ -81,7 +93,12 @@ export class KettleManager {
 // ---------- response shaping ----------
 
 const asText = (data: unknown) => ({
-  content: [{ type: "text" as const, text: typeof data === "string" ? data : JSON.stringify(data, null, 2) }],
+  content: [
+    {
+      type: "text" as const,
+      text: typeof data === "string" ? data : JSON.stringify(data, null, 2),
+    },
+  ],
 });
 
 const asError = (e: unknown) => {
@@ -106,7 +123,7 @@ const wrap = async <T>(fn: () => Promise<T>) => {
  * stdio uses one server for the process lifetime, HTTP creates one per session.
  */
 export const buildKettleServer = (manager: KettleManager): McpServer => {
-  const server = new McpServer({ name: "appkettle", version: "0.1.0" });
+  const server = new McpServer({ name: "appkettle", version: VERSION });
 
   const registerSimpleAction = (
     name: string,
@@ -126,9 +143,15 @@ export const buildKettleServer = (manager: KettleManager): McpServer => {
   server.registerTool(
     "kettle_status",
     {
-      description: "Get the current status of the kettle (state, current and target temperature, water volume in ml).",
+      description:
+        "Get the current status of the kettle (state, current and target temperature, water volume in ml).",
       inputSchema: {
-        fresh: z.boolean().optional().describe("If true, force a poll instead of returning the cached heartbeat status."),
+        fresh: z
+          .boolean()
+          .optional()
+          .describe(
+            "If true, force a poll instead of returning the cached heartbeat status.",
+          ),
       },
     },
     async ({ fresh }) =>
@@ -143,16 +166,34 @@ export const buildKettleServer = (manager: KettleManager): McpServer => {
   server.registerTool(
     "kettle_boil",
     {
-      description: "Start boiling water. Optionally specify target temperature and keep-warm duration.",
+      description:
+        "Start boiling water. Optionally specify target temperature and keep-warm duration.",
       inputSchema: {
-        target_temp: z.number().int().min(40).max(100).optional().describe("Target temperature in °C (40–100, default 100)."),
-        keep_warm_minutes: z.number().int().min(0).max(30).optional().describe("Keep-warm duration after boil in minutes (0–30, default 0)."),
+        target_temp: z
+          .number()
+          .int()
+          .min(40)
+          .max(100)
+          .optional()
+          .describe("Target temperature in °C (40–100, default 100)."),
+        keep_warm_minutes: z
+          .number()
+          .int()
+          .min(0)
+          .max(30)
+          .optional()
+          .describe(
+            "Keep-warm duration after boil in minutes (0–30, default 0).",
+          ),
       },
     },
     async ({ target_temp, keep_warm_minutes }) =>
       wrap(async () => {
         const c = await manager.ensure();
-        await c.boil({ targetTemp: target_temp, keepWarmMinutes: keep_warm_minutes });
+        await c.boil({
+          targetTemp: target_temp,
+          keepWarmMinutes: keep_warm_minutes,
+        });
         return `Boiling${target_temp ? ` to ${target_temp}°C` : ""}${keep_warm_minutes ? `, keep warm ${keep_warm_minutes}m` : ""}.`;
       }),
   );
@@ -163,15 +204,30 @@ export const buildKettleServer = (manager: KettleManager): McpServer => {
     (c) => c.kettleOn(),
     "Awake.",
   );
-  registerSimpleAction("kettle_stop", "Stop the kettle (cancel an active boil or keep-warm cycle).", (c) => c.stop(), "Stopped.");
-  registerSimpleAction("kettle_standby", "Put the kettle into standby mode (display off).", (c) => c.standby(), "Standby.");
+  registerSimpleAction(
+    "kettle_stop",
+    "Stop the kettle (cancel an active boil or keep-warm cycle).",
+    (c) => c.stop(),
+    "Stopped.",
+  );
+  registerSimpleAction(
+    "kettle_standby",
+    "Put the kettle into standby mode (display off).",
+    (c) => c.standby(),
+    "Standby.",
+  );
   registerSimpleAction(
     "kettle_keep_warm_start",
     "Engage keep-warm at the current target temperature. Use after a boil if you want to maintain temp without re-boiling.",
     (c) => c.startKeepWarm(),
     "Keep-warm started.",
   );
-  registerSimpleAction("kettle_keep_warm_stop", "Cancel an active keep-warm cycle.", (c) => c.stopKeepWarm(), "Keep-warm stopped.");
+  registerSimpleAction(
+    "kettle_keep_warm_stop",
+    "Cancel an active keep-warm cycle.",
+    (c) => c.stopKeepWarm(),
+    "Keep-warm stopped.",
+  );
 
   server.registerTool(
     "kettle_wait_until_ready",
@@ -185,27 +241,35 @@ export const buildKettleServer = (manager: KettleManager): McpServer => {
           .min(40)
           .max(100)
           .optional()
-          .describe("If set, return as soon as the current temperature reaches this value."),
+          .describe(
+            "If set, return as soon as the current temperature reaches this value.",
+          ),
         timeout_ms: z
           .number()
           .int()
           .min(1000)
           .max(900_000)
           .optional()
-          .describe("Max time to wait in milliseconds (default 300000 = 5 min)."),
+          .describe(
+            "Max time to wait in milliseconds (default 300000 = 5 min).",
+          ),
       },
     },
     async ({ target_temp, timeout_ms }) =>
       wrap(async () => {
         const c = await manager.ensure();
-        return await c.waitUntilReady({ targetTemp: target_temp, timeoutMs: timeout_ms });
+        return await c.waitUntilReady({
+          targetTemp: target_temp,
+          timeoutMs: timeout_ms,
+        });
       }),
   );
 
   server.registerTool(
     "kettle_discover",
     {
-      description: "Re-discover the kettle on the local network via UDP broadcast. Useful if its IP changed.",
+      description:
+        "Re-discover the kettle on the local network via UDP broadcast. Useful if its IP changed.",
       inputSchema: {},
     },
     async () =>

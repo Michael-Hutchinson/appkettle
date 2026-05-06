@@ -14,29 +14,56 @@ import { KettleClient } from "./client.js";
 import { discoverKettle } from "./discovery.js";
 import { validateEnv } from "./env.js";
 import { isConnectionLossError } from "./errors.js";
+import { NAME, VERSION } from "./version.js";
 
-validateEnv();
+const USAGE = `${NAME} ${VERSION}
 
-const USAGE = "usage: status | boil [temp] [kw] | stop | standby | discover | setup";
+Usage: appkettle <command> [args]
+
+Commands:
+  status                                Print current temp / state / volume
+  boil [target_temp] [keep_warm_min]    Start a boil (defaults: 100°C, 0 min)
+  stop                                  Cancel an active boil or keep-warm
+  standby                               Put the kettle into standby
+  discover                              Find the kettle on the LAN via UDP broadcast
+  setup                                 Interactive Wi-Fi pairing (laptop must be on kettle's AP)
+
+Options:
+  -h, --help                            Show this help and exit
+  -v, --version                         Show version and exit
+
+Environment:
+  KETTLE_IP, KETTLE_IMEI                Skip discovery; talk to this kettle directly
+  LOG_LEVEL                             debug | info | warn | error (default info)
+`;
 
 const runSetup = async (client: KettleClient): Promise<void> => {
   console.error("");
   console.error("This walks the kettle through joining a Wi-Fi network.");
-  console.error("Your laptop must be connected to the kettle's pairing AP (typically AK_Kettle).");
+  console.error(
+    "Your laptop must be connected to the kettle's pairing AP (typically AK_Kettle).",
+  );
   console.error("");
 
   const networks = await client.scanWifi();
   if (networks.length === 0) {
-    console.error("Kettle saw no Wi-Fi networks. Move it closer to the router and retry.");
+    console.error(
+      "Kettle saw no Wi-Fi networks. Move it closer to the router and retry.",
+    );
     return;
   }
 
   console.log("Networks the kettle can see:");
   networks.forEach((n, i) => {
-    console.log(`  [${i + 1}] ${n.ssid || "(hidden)"}  signal=${n.signal}  bssid=${n.essidHex}`);
+    console.log(
+      `  [${i + 1}] ${n.ssid || "(hidden)"}  signal=${n.signal}  bssid=${n.essidHex}`,
+    );
   });
 
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
   try {
     const choice = await rl.question("\nNumber of the network to join: ");
     const idx = Number(choice) - 1;
@@ -52,12 +79,16 @@ const runSetup = async (client: KettleClient): Promise<void> => {
       console.log("OK — kettle accepted credentials.");
     } catch (e) {
       if (isConnectionLossError(e)) {
-        console.log("Kettle dropped the connection — that's expected; it's bouncing onto your network.");
+        console.log(
+          "Kettle dropped the connection — that's expected; it's bouncing onto your network.",
+        );
       } else {
         throw e;
       }
     }
-    console.log("\nReconnect your laptop to your home Wi-Fi, then run `npm run cli discover` to confirm.");
+    console.log(
+      "\nReconnect your laptop to your home Wi-Fi, then run `npm run cli discover` to confirm.",
+    );
   } finally {
     rl.close();
   }
@@ -65,10 +96,19 @@ const runSetup = async (client: KettleClient): Promise<void> => {
 
 const main = async (): Promise<void> => {
   const cmd = process.argv[2];
-  if (!cmd) {
-    console.error(USAGE);
-    process.exit(1);
+
+  // Handle -h / -v BEFORE env validation or any I/O — these flags must work even
+  // if the env is misconfigured.
+  if (!cmd || cmd === "-h" || cmd === "--help") {
+    console.log(USAGE);
+    process.exit(cmd ? 0 : 1);
   }
+  if (cmd === "-v" || cmd === "--version") {
+    console.log(VERSION);
+    process.exit(0);
+  }
+
+  validateEnv();
 
   if (cmd === "discover") {
     const k = await discoverKettle();
@@ -94,7 +134,9 @@ const main = async (): Promise<void> => {
         const targetTemp = process.argv[3] ? Number(process.argv[3]) : 100;
         const keepWarmMinutes = process.argv[4] ? Number(process.argv[4]) : 0;
         await client.boil({ targetTemp, keepWarmMinutes });
-        console.log(`OK — boiling to ${targetTemp}°C${keepWarmMinutes ? `, keep warm ${keepWarmMinutes}m` : ""}`);
+        console.log(
+          `OK — boiling to ${targetTemp}°C${keepWarmMinutes ? `, keep warm ${keepWarmMinutes}m` : ""}`,
+        );
         break;
       }
       case "stop":
