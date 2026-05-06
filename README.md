@@ -13,7 +13,7 @@ Provides:
 - A **CLI** (`src/cli.ts`) for sanity-testing
 - An **MCP server** (`src/mcp.ts`, stdio transport) for Claude Code / Desktop
 
-A Next.js PWA front-end is planned.
+A native phone app and a Raspberry Pi host for remote access (via Tailscale) are planned.
 
 ## Setup
 
@@ -31,6 +31,7 @@ npm run cli boil 95      # boil to 95°C
 npm run cli boil 100 5   # boil and keep warm 5min
 npm run cli stop
 npm run cli standby
+npm run cli setup        # interactive Wi-Fi pairing (see "Pairing the kettle")
 ```
 
 If `KETTLE_IP` / `KETTLE_IMEI` env vars are set, those are used; otherwise the
@@ -79,10 +80,22 @@ Restart Claude. Tools available:
 
 ## Pairing the kettle
 
-This repo does not handle pairing — that's a one-time bootstrap that requires
-your Mac to switch to the kettle's `AK_Kettle` AP. Use the `pair-kettle.mjs`
-script in the original session, or port it later. The API for pairing is
-`SET_UPPER_WIFI` (3E) — see `src/protocol.ts` for the frame format.
+Use this when the kettle has no Wi-Fi credentials yet (new kettle, house move,
+or a router change). Pairing requires your laptop to be on the kettle's own AP
+during setup — Wi-Fi credentials can't be pushed over the home network.
+
+1. Long-press the kettle's button until it enters pairing mode.
+2. Connect your laptop to the kettle's AP (typically `AK_Kettle`).
+3. Run the interactive flow:
+
+   ```bash
+   npm run cli setup
+   ```
+
+   It scans nearby networks, lets you pick one, prompts for the password, and
+   sends `SET_UPPER_WIFI` (API `3E`).
+4. Reconnect your laptop to your home Wi-Fi.
+5. Confirm the kettle joined: `npm run cli discover`.
 
 ## Protocol notes
 
