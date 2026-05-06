@@ -81,7 +81,7 @@ Verify with `claude mcp list` — should show `appkettle: ✓ Connected`.
 Restart Claude. Tools available:
 
 - `kettle_status` — current temp / state / volume
-- `kettle_boil` — start a boil (optional `target_temp`, `keep_warm_minutes`)
+- `kettle_boil` — start a boil (optional `target_temp`, `keep_warm_minutes`); auto-wakes the kettle from Standby
 - `kettle_stop` — cancel boil / keep-warm
 - `kettle_standby` — display off
 - `kettle_keep_warm_start` — engage keep-warm at the current target temp
@@ -121,9 +121,14 @@ during setup — Wi-Fi credentials can't be pushed over the home network.
 ```bash
 npm run lint        # ESLint (typescript-eslint recommended)
 npm run typecheck   # tsc --noEmit
-npm test            # node --test via tsx
+npm test            # node --test via tsx — unit tests + TCP integration tests
 npm run format      # prettier --write
 ```
+
+The integration tests in `src/client.integration.test.ts` spin up a real TCP
+server on loopback that mimics the kettle, so the full `send → frame parse →
+API correlation → ack-check` loop is exercised end-to-end without needing a
+physical kettle.
 
 CI runs `lint → typecheck → test` on every push and PR. `prepublishOnly`
 runs the same gauntlet plus `build` before allowing `npm publish`.
