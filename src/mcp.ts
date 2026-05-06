@@ -147,6 +147,12 @@ server.registerTool(
     }),
 );
 
+registerSimpleAction(
+  "kettle_on",
+  "Wake the kettle from Standby. Boiling auto-wakes already; use this only if you want to explicitly bring the display back without starting a boil.",
+  (c) => c.kettleOn(),
+  "Awake.",
+);
 registerSimpleAction("kettle_stop", "Stop the kettle (cancel an active boil or keep-warm cycle).", (c) => c.stop(), "Stopped.");
 registerSimpleAction("kettle_standby", "Put the kettle into standby mode (display off).", (c) => c.standby(), "Standby.");
 registerSimpleAction(

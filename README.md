@@ -82,6 +82,7 @@ Restart Claude. Tools available:
 
 - `kettle_status` — current temp / state / volume
 - `kettle_boil` — start a boil (optional `target_temp`, `keep_warm_minutes`); auto-wakes the kettle from Standby
+- `kettle_on` — explicitly wake from Standby (rarely needed since `kettle_boil` auto-wakes)
 - `kettle_stop` — cancel boil / keep-warm
 - `kettle_standby` — display off
 - `kettle_keep_warm_start` — engage keep-warm at the current target temp
