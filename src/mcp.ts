@@ -6,63 +6,73 @@ import { z } from "zod";
 import { loadKettleConfig, type KettleConfig } from "./config.js";
 import { KettleClient } from "./client.js";
 import { discoverKettle } from "./discovery.js";
-import { createLogger } from "./logger.js";
+import { createLogger, type Logger } from "./logger.js";
+
+/**
+ * Owns the single KettleClient shared across MCP tool invocations and the cached config.
+ * Encapsulating these used to be module globals — this makes mcp.ts unit-testable in
+ * principle and gives one place to evolve the connection lifecycle (e.g. for HTTP transport).
+ */
+class KettleManager {
+  private client: KettleClient | null = null;
+  private cachedConfig: KettleConfig | null = null;
+
+  constructor(private readonly log: Logger) {}
+
+  async ensure(): Promise<KettleClient> {
+    if (this.client) return this.client;
+
+    const initial = this.cachedConfig ?? (await loadKettleConfig());
+    try {
+      this.client = await this.tryConnect(initial);
+      this.cachedConfig = initial;
+      return this.client;
+    } catch (e) {
+      this.log.warn(`Initial connect failed (${e instanceof Error ? e.message : e}); rediscovering...`);
+    }
+
+    const discovered = await discoverKettle();
+    const cfg: KettleConfig = { ip: discovered.ip, imei: discovered.imei };
+    this.log.info(`Discovered kettle at ${cfg.ip}, retrying`);
+    this.client = await this.tryConnect(cfg);
+    this.cachedConfig = cfg;
+    return this.client;
+  }
+
+  /** Replace the cached config and force the next ensure() to reconnect. */
+  setConfig(cfg: KettleConfig): void {
+    this.cachedConfig = cfg;
+    this.reset();
+  }
+
+  /** Close any active client; next ensure() will reconnect. */
+  reset(): void {
+    this.client?.close();
+    this.client = null;
+  }
+
+  private async tryConnect(cfg: KettleConfig): Promise<KettleClient> {
+    this.log.info(`Connecting to ${cfg.imei} at ${cfg.ip}:6002`);
+    const c = new KettleClient(cfg);
+    c.on("error", (e) => this.log.error("client error:", e.message));
+    c.on("connect", () => this.log.info("connected"));
+    c.on("close", () => this.log.info("disconnected (will auto-reconnect)"));
+    c.on("unmatched", (reply) => this.log.debug("unmatched reply:", reply.api));
+    try {
+      await c.connectAndWait();
+      return c;
+    } catch (e) {
+      c.close();
+      throw e;
+    }
+  }
+}
 
 const log = createLogger("appkettle");
+const manager = new KettleManager(log);
+const server = new McpServer({ name: "appkettle", version: "0.1.0" });
 
-let client: KettleClient | null = null;
-let cachedConfig: KettleConfig | null = null;
-
-const tryConnect = async (cfg: KettleConfig): Promise<KettleClient> => {
-  log.info(`Connecting to ${cfg.imei} at ${cfg.ip}:6002`);
-  const c = new KettleClient(cfg);
-  c.on("error", (e) => log.error("client error:", e.message));
-  c.on("connect", () => log.info("connected"));
-  c.on("close", () => log.info("disconnected (will auto-reconnect)"));
-  c.connect();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const t = setTimeout(() => reject(new Error("connect timeout")), 8000);
-      c.once("connect", () => {
-        clearTimeout(t);
-        resolve();
-      });
-      c.once("error", (e) => {
-        clearTimeout(t);
-        reject(e);
-      });
-    });
-    await c.whenReady();
-    return c;
-  } catch (e) {
-    c.close();
-    throw e;
-  }
-};
-
-const ensureClient = async (): Promise<KettleClient> => {
-  if (client) return client;
-
-  // 1. Try cached/env config first
-  const initial = cachedConfig ?? (await loadKettleConfig());
-  try {
-    const c = await tryConnect(initial);
-    cachedConfig = initial;
-    client = c;
-    return c;
-  } catch (e) {
-    log.warn(`Initial connect failed (${e instanceof Error ? e.message : e}); rediscovering...`);
-  }
-
-  // 2. Fall back to UDP discovery (kettle's IP may have changed)
-  const discovered = await discoverKettle();
-  const cfg: KettleConfig = { ip: discovered.ip, imei: discovered.imei };
-  log.info(`Discovered kettle at ${cfg.ip}, retrying`);
-  const c = await tryConnect(cfg);
-  cachedConfig = cfg;
-  client = c;
-  return c;
-};
+// ---------- response shaping ----------
 
 const asText = (data: unknown) => ({
   content: [{ type: "text" as const, text: typeof data === "string" ? data : JSON.stringify(data, null, 2) }],
@@ -85,7 +95,23 @@ const wrap = async <T>(fn: () => Promise<T>) => {
   }
 };
 
-const server = new McpServer({ name: "appkettle", version: "0.1.0" });
+/** Register a tool that takes no inputs and returns a fixed success message. */
+const registerSimpleAction = (
+  name: string,
+  description: string,
+  action: (c: KettleClient) => Promise<void>,
+  okMessage: string,
+): void => {
+  server.registerTool(name, { description, inputSchema: {} }, async () =>
+    wrap(async () => {
+      const c = await manager.ensure();
+      await action(c);
+      return okMessage;
+    }),
+  );
+};
+
+// ---------- tools ----------
 
 server.registerTool(
   "kettle_status",
@@ -97,7 +123,7 @@ server.registerTool(
   },
   async ({ fresh }) =>
     wrap(async () => {
-      const c = await ensureClient();
+      const c = await manager.ensure();
       if (fresh) return await c.pollStatus();
       const cached = c.getCachedStatus();
       return cached.status ?? (await c.pollStatus());
@@ -115,67 +141,21 @@ server.registerTool(
   },
   async ({ target_temp, keep_warm_minutes }) =>
     wrap(async () => {
-      const c = await ensureClient();
+      const c = await manager.ensure();
       await c.boil({ targetTemp: target_temp, keepWarmMinutes: keep_warm_minutes });
       return `Boiling${target_temp ? ` to ${target_temp}°C` : ""}${keep_warm_minutes ? `, keep warm ${keep_warm_minutes}m` : ""}.`;
     }),
 );
 
-server.registerTool(
-  "kettle_stop",
-  {
-    description: "Stop the kettle (cancel an active boil or keep-warm cycle).",
-    inputSchema: {},
-  },
-  async () =>
-    wrap(async () => {
-      const c = await ensureClient();
-      await c.stop();
-      return "Stopped.";
-    }),
-);
-
-server.registerTool(
-  "kettle_standby",
-  {
-    description: "Put the kettle into standby mode (display off).",
-    inputSchema: {},
-  },
-  async () =>
-    wrap(async () => {
-      const c = await ensureClient();
-      await c.standby();
-      return "Standby.";
-    }),
-);
-
-server.registerTool(
+registerSimpleAction("kettle_stop", "Stop the kettle (cancel an active boil or keep-warm cycle).", (c) => c.stop(), "Stopped.");
+registerSimpleAction("kettle_standby", "Put the kettle into standby mode (display off).", (c) => c.standby(), "Standby.");
+registerSimpleAction(
   "kettle_keep_warm_start",
-  {
-    description: "Engage keep-warm at the current target temperature. Use after a boil if you want to maintain temp without re-boiling.",
-    inputSchema: {},
-  },
-  async () =>
-    wrap(async () => {
-      const c = await ensureClient();
-      await c.startKeepWarm();
-      return "Keep-warm started.";
-    }),
+  "Engage keep-warm at the current target temperature. Use after a boil if you want to maintain temp without re-boiling.",
+  (c) => c.startKeepWarm(),
+  "Keep-warm started.",
 );
-
-server.registerTool(
-  "kettle_keep_warm_stop",
-  {
-    description: "Cancel an active keep-warm cycle.",
-    inputSchema: {},
-  },
-  async () =>
-    wrap(async () => {
-      const c = await ensureClient();
-      await c.stopKeepWarm();
-      return "Keep-warm stopped.";
-    }),
-);
+registerSimpleAction("kettle_keep_warm_stop", "Cancel an active keep-warm cycle.", (c) => c.stopKeepWarm(), "Keep-warm stopped.");
 
 server.registerTool(
   "kettle_wait_until_ready",
@@ -201,7 +181,7 @@ server.registerTool(
   },
   async ({ target_temp, timeout_ms }) =>
     wrap(async () => {
-      const c = await ensureClient();
+      const c = await manager.ensure();
       return await c.waitUntilReady({ targetTemp: target_temp, timeoutMs: timeout_ms });
     }),
 );
@@ -215,10 +195,7 @@ server.registerTool(
   async () =>
     wrap(async () => {
       const k = await discoverKettle();
-      // Force reconnect on next call so we pick up any IP change.
-      if (client) client.close();
-      client = null;
-      cachedConfig = { ip: k.ip, imei: k.imei };
+      manager.setConfig({ ip: k.ip, imei: k.imei });
       return k;
     }),
 );
