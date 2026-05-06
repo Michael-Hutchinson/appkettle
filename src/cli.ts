@@ -12,7 +12,10 @@ import * as readline from "node:readline/promises";
 import { loadKettleConfig } from "./config.js";
 import { KettleClient } from "./client.js";
 import { discoverKettle } from "./discovery.js";
+import { validateEnv } from "./env.js";
 import { isConnectionLossError } from "./errors.js";
+
+validateEnv();
 
 const USAGE = "usage: status | boil [temp] [kw] | stop | standby | discover | setup";
 

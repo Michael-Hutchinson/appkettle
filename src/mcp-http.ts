@@ -19,15 +19,17 @@ import { randomUUID } from "node:crypto";
 import express, { type Request, type Response, type NextFunction } from "express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
+import { validateEnv } from "./env.js";
 import { createLogger } from "./logger.js";
 import { KettleManager, buildKettleServer } from "./mcp-tools.js";
 
+const env = validateEnv();
 const log = createLogger("appkettle-http");
 const manager = new KettleManager(log);
 
-const host = process.env.MCP_HTTP_HOST ?? "127.0.0.1";
-const port = Number(process.env.MCP_HTTP_PORT ?? 8080);
-const authToken = process.env.MCP_AUTH_TOKEN;
+const host = env.MCP_HTTP_HOST ?? "127.0.0.1";
+const port = env.MCP_HTTP_PORT ?? 8080;
+const authToken = env.MCP_AUTH_TOKEN;
 
 const app = express();
 app.use(express.json());

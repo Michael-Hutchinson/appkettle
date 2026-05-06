@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 // MCP server (stdio transport) — Claude Code/Desktop spawn this as a subprocess.
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { validateEnv } from "./env.js";
 import { createLogger } from "./logger.js";
 import { KettleManager, buildKettleServer } from "./mcp-tools.js";
 
+validateEnv();
 const log = createLogger("appkettle");
 const manager = new KettleManager(log);
 const server = buildKettleServer(manager);
