@@ -16,12 +16,19 @@
 //   KETTLE_IMEI       same
 //   LOG_LEVEL         debug | info | warn | error (default info)
 import { randomUUID } from "node:crypto";
-import express, { type Request, type Response, type NextFunction } from "express";
+import express, {
+  type Request,
+  type Response,
+  type NextFunction,
+} from "express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { validateEnv } from "./env.js";
 import { createLogger } from "./logger.js";
 import { KettleManager, buildKettleServer } from "./mcp-tools.js";
+import { VERSION } from "./version.js";
+
+const startedAt = Date.now();
 
 const env = validateEnv();
 const log = createLogger("appkettle-http");
@@ -52,6 +59,8 @@ const transports: Record<string, StreamableHTTPServerTransport> = {};
 app.get("/healthz", (_req, res) => {
   res.json({
     status: "ok",
+    version: VERSION,
+    uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
     sessions: Object.keys(transports).length,
     kettle: manager.snapshot(),
   });
@@ -83,7 +92,10 @@ app.post("/mcp", async (req: Request, res: Response): Promise<void> => {
   } else {
     res.status(400).json({
       jsonrpc: "2.0",
-      error: { code: -32000, message: "Bad Request: no valid session ID provided" },
+      error: {
+        code: -32000,
+        message: "Bad Request: no valid session ID provided",
+      },
       id: null,
     });
     return;
@@ -94,7 +106,10 @@ app.post("/mcp", async (req: Request, res: Response): Promise<void> => {
 
 // SSE streams (server → client notifications) and DELETE (client-driven session termination)
 // both flow through the same transport object once the session is established.
-const handleSessionRequest = async (req: Request, res: Response): Promise<void> => {
+const handleSessionRequest = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
   if (!sessionId || !transports[sessionId]) {
     res.status(400).send("Invalid or missing session ID");
@@ -108,11 +123,14 @@ app.delete("/mcp", handleSessionRequest);
 
 const httpServer = app.listen(port, host, () => {
   log.info(`MCP HTTP server ready on http://${host}:${port}/mcp`);
-  if (!authToken) log.warn("MCP_AUTH_TOKEN not set — endpoint is unauthenticated");
+  if (!authToken)
+    log.warn("MCP_AUTH_TOKEN not set — endpoint is unauthenticated");
 });
 
 const shutdown = async (signal: string): Promise<void> => {
-  log.info(`received ${signal}, draining sessions and closing kettle connection`);
+  log.info(
+    `received ${signal}, draining sessions and closing kettle connection`,
+  );
   // Stop accepting new HTTP connections.
   httpServer.close();
   // Close active MCP sessions so clients see a clean disconnect.
