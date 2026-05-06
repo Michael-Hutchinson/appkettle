@@ -12,6 +12,7 @@ import * as readline from "node:readline/promises";
 import { loadKettleConfig } from "./config.js";
 import { KettleClient } from "./client.js";
 import { discoverKettle } from "./discovery.js";
+import { isConnectionLossError } from "./errors.js";
 
 const die = (msg: string): never => {
   console.error(msg);
@@ -89,8 +90,7 @@ try {
           await client.setUpperWifi(target.essidHex, password);
           console.log("OK — kettle accepted credentials.");
         } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          if (/Timeout|Connection closed|Not connected/.test(msg)) {
+          if (isConnectionLossError(e)) {
             console.log("Kettle dropped the connection — that's expected; it's bouncing onto your network.");
           } else {
             throw e;

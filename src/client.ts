@@ -3,6 +3,13 @@
 import net from "node:net";
 import { EventEmitter } from "node:events";
 import {
+  KettleConnectionClosedError,
+  KettleNackError,
+  KettleNotConnectedError,
+  KettleNotReadyError,
+  KettleTimeoutError,
+} from "./errors.js";
+import {
   buildWire,
   cmdGetSearchWifiLists,
   cmdGetStatus,
@@ -181,7 +188,7 @@ export class KettleClient extends EventEmitter {
       };
       const timer = setTimeout(() => {
         this.off("status", onStatus);
-        reject(new Error(`Kettle not ready after ${timeoutMs}ms`));
+        reject(new KettleNotReadyError(timeoutMs));
       }, timeoutMs);
       this.on("status", onStatus);
     });
@@ -198,16 +205,16 @@ export class KettleClient extends EventEmitter {
 
   private assertOk(reply: AcrossReply): void {
     const ack = reply.content.slice(0, 2).toUpperCase();
-    if (ack !== "C8") throw new Error(`Kettle rejected ${reply.api}: ack=${ack}`);
+    if (ack !== "C8") throw new KettleNackError(reply.api, ack);
   }
 
   private send(frame: { api: string; content?: string; serial: number; prefix?: string; msgUnique?: string }): Promise<AcrossReply> {
-    if (!this.sock || !this.sock.writable) return Promise.reject(new Error("Not connected"));
+    if (!this.sock || !this.sock.writable) return Promise.reject(new KettleNotConnectedError());
     const wire = buildWire(this.imei, frame);
     return new Promise<AcrossReply>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending = this.pending.filter((p) => p !== entry);
-        reject(new Error(`Timeout waiting for API ${frame.api}`));
+        reject(new KettleTimeoutError(frame.api, COMMAND_TIMEOUT_MS));
       }, COMMAND_TIMEOUT_MS);
       const entry: PendingResponse = { api: frame.api.toUpperCase(), resolve, reject, timer };
       this.pending.push(entry);
@@ -278,7 +285,7 @@ export class KettleClient extends EventEmitter {
     }
     for (const p of this.pending) {
       clearTimeout(p.timer);
-      p.reject(new Error("Connection closed"));
+      p.reject(new KettleConnectionClosedError());
     }
     this.pending = [];
     this.buf = Buffer.alloc(0);

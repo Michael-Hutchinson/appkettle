@@ -6,18 +6,19 @@ import { z } from "zod";
 import { loadKettleConfig, type KettleConfig } from "./config.js";
 import { KettleClient } from "./client.js";
 import { discoverKettle } from "./discovery.js";
+import { createLogger } from "./logger.js";
 
-const log = (...args: unknown[]): void => console.error("[appkettle]", ...args);
+const log = createLogger("appkettle");
 
 let client: KettleClient | null = null;
 let cachedConfig: KettleConfig | null = null;
 
 const tryConnect = async (cfg: KettleConfig): Promise<KettleClient> => {
-  log(`Connecting to ${cfg.imei} at ${cfg.ip}:6002`);
+  log.info(`Connecting to ${cfg.imei} at ${cfg.ip}:6002`);
   const c = new KettleClient(cfg);
-  c.on("error", (e) => log("client error:", e.message));
-  c.on("connect", () => log("connected"));
-  c.on("close", () => log("disconnected (will auto-reconnect)"));
+  c.on("error", (e) => log.error("client error:", e.message));
+  c.on("connect", () => log.info("connected"));
+  c.on("close", () => log.info("disconnected (will auto-reconnect)"));
   c.connect();
   try {
     await new Promise<void>((resolve, reject) => {
@@ -50,13 +51,13 @@ const ensureClient = async (): Promise<KettleClient> => {
     client = c;
     return c;
   } catch (e) {
-    log(`Initial connect failed (${e instanceof Error ? e.message : e}); rediscovering...`);
+    log.warn(`Initial connect failed (${e instanceof Error ? e.message : e}); rediscovering...`);
   }
 
   // 2. Fall back to UDP discovery (kettle's IP may have changed)
   const discovered = await discoverKettle();
   const cfg: KettleConfig = { ip: discovered.ip, imei: discovered.imei };
-  log(`Discovered kettle at ${cfg.ip}, retrying`);
+  log.info(`Discovered kettle at ${cfg.ip}, retrying`);
   const c = await tryConnect(cfg);
   cachedConfig = cfg;
   client = c;
@@ -67,16 +68,20 @@ const asText = (data: unknown) => ({
   content: [{ type: "text" as const, text: typeof data === "string" ? data : JSON.stringify(data, null, 2) }],
 });
 
-const asError = (msg: string) => ({
-  content: [{ type: "text" as const, text: `Error: ${msg}` }],
-  isError: true,
-});
+const asError = (e: unknown) => {
+  const name = e instanceof Error ? e.constructor.name : "Error";
+  const msg = e instanceof Error ? e.message : String(e);
+  return {
+    content: [{ type: "text" as const, text: `${name}: ${msg}` }],
+    isError: true,
+  };
+};
 
 const wrap = async <T>(fn: () => Promise<T>) => {
   try {
     return asText(await fn());
   } catch (e) {
-    return asError(e instanceof Error ? e.message : String(e));
+    return asError(e);
   }
 };
 
@@ -221,10 +226,10 @@ server.registerTool(
 const main = async (): Promise<void> => {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  log("MCP server ready on stdio");
+  log.info("MCP server ready on stdio");
 };
 
 main().catch((e) => {
-  log("fatal:", e);
+  log.error("fatal:", e);
   process.exit(1);
 });
