@@ -125,6 +125,13 @@ const httpServer = app.listen(port, host, () => {
   log.info(`MCP HTTP server ready on http://${host}:${port}/mcp`);
   if (!authToken)
     log.warn("MCP_AUTH_TOKEN not set — endpoint is unauthenticated");
+
+  // Pre-warm so the first tool call from any session is fast.
+  manager
+    .ensure()
+    .catch((e) =>
+      log.warn(`pre-warm failed: ${e instanceof Error ? e.message : e}`),
+    );
 });
 
 const shutdown = async (signal: string): Promise<void> => {

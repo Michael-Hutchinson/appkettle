@@ -22,6 +22,15 @@ const main = async (): Promise<void> => {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   log.info("MCP server ready on stdio");
+
+  // Pre-warm the kettle connection so the first tool call doesn't pay the
+  // cold-start cost. Fire-and-forget — any failure surfaces on the first real
+  // tool call, which retries via the same path.
+  manager
+    .ensure()
+    .catch((e) =>
+      log.warn(`pre-warm failed: ${e instanceof Error ? e.message : e}`),
+    );
 };
 
 main().catch((e) => {

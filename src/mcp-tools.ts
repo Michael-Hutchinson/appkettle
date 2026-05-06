@@ -16,12 +16,25 @@ import { VERSION } from "./version.js";
 export class KettleManager {
   private client: KettleClient | null = null;
   private cachedConfig: KettleConfig | null = null;
+  // Deduplicate concurrent ensure() calls so a tool invocation landing during
+  // pre-warm (or another in-flight ensure) doesn't race and open a second TCP socket.
+  private connecting: Promise<KettleClient> | null = null;
 
   constructor(private readonly log: Logger) {}
 
   async ensure(): Promise<KettleClient> {
     if (this.client) return this.client;
+    if (this.connecting) return this.connecting;
 
+    this.connecting = this.doEnsure();
+    try {
+      return await this.connecting;
+    } finally {
+      this.connecting = null;
+    }
+  }
+
+  private async doEnsure(): Promise<KettleClient> {
     const initial = this.cachedConfig ?? (await loadKettleConfig());
     try {
       this.client = await this.tryConnect(initial);
