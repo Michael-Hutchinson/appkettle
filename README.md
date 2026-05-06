@@ -47,7 +47,11 @@ go to stderr to keep MCP stdio clean.
 
 ## MCP server
 
-The MCP server runs over stdio, so Claude Code/Desktop spawns it as a subprocess.
+There are two transports. Most people want the **stdio** one — it's what Claude
+Code and Claude Desktop expect. The **HTTP** one is for running on an always-on
+host (e.g. a Raspberry Pi) so MCP clients elsewhere on your network can reach it.
+
+### Stdio (Claude Code / Desktop)
 
 After `npm run build`:
 
@@ -90,6 +94,41 @@ Restart Claude. Tools available:
 - `kettle_wait_until_ready` — block until heating finishes or `target_temp` is reached
 - `kettle_discover` — re-find IP if your DHCP lease changed
 
+### HTTP (Pi host / remote access)
+
+The HTTP transport hosts the same tools over a single `/mcp` endpoint. Run it
+on a host that's always on (e.g. a Raspberry Pi on your home LAN with the
+kettle), expose that host to your other devices via [Tailscale](https://tailscale.com)
+or similar, and you can boil the kettle from anywhere.
+
+```bash
+npm run build
+MCP_AUTH_TOKEN=$(openssl rand -hex 32) \
+MCP_HTTP_HOST=0.0.0.0 \
+MCP_HTTP_PORT=8080 \
+node dist/mcp-http.js
+```
+
+Config (env vars):
+
+- `MCP_HTTP_HOST` — bind address. Default `127.0.0.1` (local-only). Set to your
+  Tailscale IP or `0.0.0.0` to listen on all interfaces.
+- `MCP_HTTP_PORT` — port. Default `8080`.
+- `MCP_AUTH_TOKEN` — if set, every request must include
+  `Authorization: Bearer <token>`. If unset, the endpoint is unauthenticated
+  (acceptable on a tailnet, **not** acceptable if exposed to the open internet).
+- `KETTLE_IP` / `KETTLE_IMEI` / `LOG_LEVEL` — same as stdio.
+
+Smoke test from another machine:
+
+```bash
+curl -X POST http://<host>:8080/mcp \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}'
+```
+
 ## Pairing the kettle
 
 Use this when the kettle has no Wi-Fi credentials yet (new kettle, house move,
@@ -120,6 +159,9 @@ during setup — Wi-Fi credentials can't be pushed over the home network.
 ## Development
 
 ```bash
+npm run dev         # stdio MCP server (tsx)
+npm run dev:http    # HTTP MCP server (tsx)
+npm run cli <cmd>   # see Quick CLI test above
 npm run lint        # ESLint (typescript-eslint recommended)
 npm run typecheck   # tsc --noEmit
 npm test            # node --test via tsx — unit tests + TCP integration tests

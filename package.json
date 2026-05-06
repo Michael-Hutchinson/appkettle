@@ -27,7 +27,8 @@
     "node": ">=20"
   },
   "bin": {
-    "appkettle-mcp": "./dist/mcp.js"
+    "appkettle-mcp": "./dist/mcp.js",
+    "appkettle-mcp-http": "./dist/mcp-http.js"
   },
   "files": [
     "dist",
@@ -35,8 +36,9 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc && chmod +x dist/mcp.js dist/cli.js",
+    "build": "tsc && chmod +x dist/mcp.js dist/mcp-http.js dist/cli.js",
     "dev": "tsx src/mcp.ts",
+    "dev:http": "tsx src/mcp-http.ts",
     "cli": "tsx src/cli.ts",
     "discover": "tsx src/discovery.ts",
     "test": "node --import tsx --test src/*.test.ts",
@@ -47,10 +49,12 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "express": "^5.2.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.10.0",
     "eslint": "^10.3.0",
     "prettier": "^3.4.2",
