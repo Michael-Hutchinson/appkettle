@@ -60,7 +60,7 @@ try {
     case "setup": {
       console.error("");
       console.error("This walks the kettle through joining a Wi-Fi network.");
-      console.error("Your laptop must be connected to the kettle's pairing AP (e.g. AppKettle-XXXX).");
+      console.error("Your laptop must be connected to the kettle's pairing AP (typically AK_Kettle).");
       console.error("");
 
       const networks = await client.scanWifi();
