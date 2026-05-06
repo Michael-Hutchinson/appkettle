@@ -47,6 +47,16 @@ if (authToken) {
 // Active sessions, keyed by mcp-session-id header.
 const transports: Record<string, StreamableHTTPServerTransport> = {};
 
+// Health endpoint — outside the auth middleware would be cleaner for prod monitoring,
+// but for a tailnet-only service requiring the same token everywhere is fine.
+app.get("/healthz", (_req, res) => {
+  res.json({
+    status: "ok",
+    sessions: Object.keys(transports).length,
+    kettle: manager.snapshot(),
+  });
+});
+
 app.post("/mcp", async (req: Request, res: Response): Promise<void> => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
 

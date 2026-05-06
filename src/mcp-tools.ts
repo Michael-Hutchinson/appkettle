@@ -50,6 +50,17 @@ export class KettleManager {
     this.client = null;
   }
 
+  /** Snapshot for /healthz. Doesn't trigger a connection; returns whatever's cached. */
+  snapshot(): { connected: boolean; ip: string | null; lastSeenAt: string | null } {
+    if (!this.client) return { connected: false, ip: this.cachedConfig?.ip ?? null, lastSeenAt: null };
+    const { updatedAt } = this.client.getCachedStatus();
+    return {
+      connected: true,
+      ip: this.cachedConfig?.ip ?? null,
+      lastSeenAt: updatedAt > 0 ? new Date(updatedAt).toISOString() : null,
+    };
+  }
+
   private async tryConnect(cfg: KettleConfig): Promise<KettleClient> {
     this.log.info(`Connecting to ${cfg.imei} at ${cfg.ip}:6002`);
     const c = new KettleClient(cfg);
