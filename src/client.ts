@@ -157,6 +157,36 @@ export class KettleClient extends EventEmitter {
     this.assertOk(reply);
   }
 
+  /**
+   * Resolve when the kettle leaves the Heating state, or (if targetTemp is given) when its
+   * current temperature reaches that target — whichever happens first. Rejects on timeout.
+   */
+  waitUntilReady(opts: { targetTemp?: number; timeoutMs?: number } = {}): Promise<KettleStatus> {
+    const timeoutMs = opts.timeoutMs ?? 300_000;
+    const isReady = (s: KettleStatus): boolean => {
+      if (s.state === "Ready" || s.state === "Keep Warm" || s.state === "Standby") return true;
+      if (opts.targetTemp != null && s.temperature >= opts.targetTemp) return true;
+      return false;
+    };
+
+    const cached = this.getCachedStatus().status;
+    if (cached && isReady(cached)) return Promise.resolve(cached);
+
+    return new Promise<KettleStatus>((resolve, reject) => {
+      const onStatus = (s: KettleStatus): void => {
+        if (!isReady(s)) return;
+        clearTimeout(timer);
+        this.off("status", onStatus);
+        resolve(s);
+      };
+      const timer = setTimeout(() => {
+        this.off("status", onStatus);
+        reject(new Error(`Kettle not ready after ${timeoutMs}ms`));
+      }, timeoutMs);
+      this.on("status", onStatus);
+    });
+  }
+
   // ---------- internals ----------
 
   private nextSerial(): number {

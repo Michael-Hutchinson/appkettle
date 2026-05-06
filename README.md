@@ -76,6 +76,9 @@ Restart Claude. Tools available:
 - `kettle_boil` — start a boil (optional `target_temp`, `keep_warm_minutes`)
 - `kettle_stop` — cancel boil / keep-warm
 - `kettle_standby` — display off
+- `kettle_keep_warm_start` — engage keep-warm at the current target temp
+- `kettle_keep_warm_stop` — cancel keep-warm
+- `kettle_wait_until_ready` — block until heating finishes or `target_temp` is reached
 - `kettle_discover` — re-find IP if your DHCP lease changed
 
 ## Pairing the kettle

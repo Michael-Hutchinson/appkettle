@@ -3,12 +3,37 @@
   "version": "0.1.0",
   "description": "Local control bridge for the AppKettle smart kettle (defunct vendor). Reverse-engineered Across protocol over TCP/6002. Exposes an MCP server.",
   "type": "module",
+  "private": true,
+  "license": "UNLICENSED",
+  "author": "Michael Hutchinson",
+  "homepage": "https://github.com/Michael-Hutchinson/appkettle#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Michael-Hutchinson/appkettle.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Michael-Hutchinson/appkettle/issues"
+  },
+  "keywords": [
+    "appkettle",
+    "smart-kettle",
+    "mcp",
+    "model-context-protocol",
+    "iot",
+    "reverse-engineering",
+    "claude"
+  ],
   "engines": {
     "node": ">=20"
   },
   "bin": {
     "appkettle-mcp": "./dist/mcp.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc && chmod +x dist/mcp.js dist/cli.js",
     "dev": "tsx src/mcp.ts",
@@ -16,7 +41,8 @@
     "discover": "tsx src/discovery.ts",
     "test": "node --import tsx --test src/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "format": "prettier --write \"src/**/*.ts\""
+    "format": "prettier --write \"src/**/*.ts\"",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

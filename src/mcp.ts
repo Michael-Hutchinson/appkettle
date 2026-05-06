@@ -145,6 +145,63 @@ server.registerTool(
 );
 
 server.registerTool(
+  "kettle_keep_warm_start",
+  {
+    description: "Engage keep-warm at the current target temperature. Use after a boil if you want to maintain temp without re-boiling.",
+    inputSchema: {},
+  },
+  async () =>
+    wrap(async () => {
+      const c = await ensureClient();
+      await c.startKeepWarm();
+      return "Keep-warm started.";
+    }),
+);
+
+server.registerTool(
+  "kettle_keep_warm_stop",
+  {
+    description: "Cancel an active keep-warm cycle.",
+    inputSchema: {},
+  },
+  async () =>
+    wrap(async () => {
+      const c = await ensureClient();
+      await c.stopKeepWarm();
+      return "Keep-warm stopped.";
+    }),
+);
+
+server.registerTool(
+  "kettle_wait_until_ready",
+  {
+    description:
+      "Block until the kettle finishes heating (state leaves 'Heating') or the optional target temperature is reached. Returns the final status.",
+    inputSchema: {
+      target_temp: z
+        .number()
+        .int()
+        .min(40)
+        .max(100)
+        .optional()
+        .describe("If set, return as soon as the current temperature reaches this value."),
+      timeout_ms: z
+        .number()
+        .int()
+        .min(1000)
+        .max(900_000)
+        .optional()
+        .describe("Max time to wait in milliseconds (default 300000 = 5 min)."),
+    },
+  },
+  async ({ target_temp, timeout_ms }) =>
+    wrap(async () => {
+      const c = await ensureClient();
+      return await c.waitUntilReady({ targetTemp: target_temp, timeoutMs: timeout_ms });
+    }),
+);
+
+server.registerTool(
   "kettle_discover",
   {
     description: "Re-discover the kettle on the local network via UDP broadcast. Useful if its IP changed.",
