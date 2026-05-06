@@ -27,7 +27,7 @@ import {
   type BoilArgs,
   type KettleStatus,
   type ScanEntry,
-} from "./protocol.js";
+} from "./protocol/index.js";
 
 export interface KettleClientOpts {
   ip: string;

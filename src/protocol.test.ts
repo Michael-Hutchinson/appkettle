@@ -18,7 +18,7 @@ import {
   strToHex,
   wireFrame,
   wrapJson,
-} from "./protocol.js";
+} from "./protocol/index.js";
 
 test("strToHex / hexToStr round-trip", () => {
   const s = "AppKettle-123";
