@@ -1,20 +1,25 @@
 # appkettle
 
-Local-network bridge for the AppKettle smart kettle. The vendor (iFavine) and
-their cloud (jingxuncloud) are defunct; this talks to the kettle directly over
-its proprietary "Across" protocol on TCP/6002, reverse-engineered from the
-official Android APK (`com.ifavine.appkettle` 1.3.9) and the
-[`tinaught/appkettleapi`](https://github.com/tinaught/appkettleapi) project.
+The AppKettle is a Wi-Fi kettle. The company that made it shut down their
+cloud service, so the official app stopped working — overnight, my smart
+kettle was just a kettle.
 
-Provides:
+This project makes it smart again. It talks to the kettle directly over your
+home Wi-Fi: no cloud, no account, nothing leaves your house. The kettle's own
+language was figured out by unpacking the official Android app and reading its
+code, then rebuilt from scratch in TypeScript.
 
-- A pure-TypeScript **protocol library** (`src/protocol/`) — hex helpers, frame builders, command builders, and reply parsers in focused modules
-- A **TCP client** (`src/client.ts`) with exponential-backoff reconnect and status caching from heartbeats
-- A **CLI** (`src/cli.ts`) for sanity-testing and one-shot Wi-Fi pairing
-- An **MCP server** (`src/mcp.ts`, stdio transport) for Claude Code / Desktop
-- Typed error classes (`src/errors.ts`) and a leveled stderr logger (`src/logger.ts`)
+What's here:
 
-A native phone app and a Raspberry Pi host for remote access (via Tailscale) are planned.
+- A **command-line tool** for boiling, stopping, checking status, and pairing
+  the kettle to a new Wi-Fi network
+- An **[MCP](https://modelcontextprotocol.io/) server** so Claude (Code or
+  Desktop) can control the kettle when you ask it to
+- The **TypeScript library** underneath both, if you want to build something
+  else on top
+
+A native phone app and a Raspberry Pi host for remote access (via Tailscale)
+are planned.
 
 ## Setup
 
