@@ -22,9 +22,14 @@ export interface KettleClientOpts {
   ip: string;
   imei: string;
   port?: number;
-  reconnectIntervalMs?: number;
+  reconnectInitialMs?: number;
+  reconnectMaxMs?: number;
   heartbeatIntervalMs?: number;
 }
+
+/** Next reconnect delay: double the current, capped at max. Pure for testability. */
+export const nextBackoffDelay = (current: number, max: number): number =>
+  Math.min(current * 2, max);
 
 interface PendingResponse {
   api: string;
@@ -39,6 +44,9 @@ export class KettleClient extends EventEmitter {
   readonly ip: string;
   readonly imei: string;
   readonly port: number;
+  private readonly reconnectInitialMs: number;
+  private readonly reconnectMaxMs: number;
+  private currentReconnectDelay: number;
   private sock: net.Socket | null = null;
   private buf = Buffer.alloc(0);
   private serial = 1;
@@ -55,6 +63,9 @@ export class KettleClient extends EventEmitter {
     this.ip = opts.ip;
     this.imei = opts.imei;
     this.port = opts.port ?? 6002;
+    this.reconnectInitialMs = opts.reconnectInitialMs ?? 1000;
+    this.reconnectMaxMs = opts.reconnectMaxMs ?? 30_000;
+    this.currentReconnectDelay = this.reconnectInitialMs;
   }
 
   connect(): void {
@@ -182,6 +193,7 @@ export class KettleClient extends EventEmitter {
     // First message from the kettle (typically an INIT api=A4) marks the link ready for commands.
     if (!this.ready) {
       this.ready = true;
+      this.currentReconnectDelay = this.reconnectInitialMs;
       this.emit("ready");
     }
 
@@ -228,9 +240,12 @@ export class KettleClient extends EventEmitter {
 
   private scheduleReconnect(): void {
     if (this.reconnectTimer) return;
+    const delay = this.currentReconnectDelay;
+    this.emit("reconnecting", { delayMs: delay });
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       if (this.wantOpen) this.connect();
-    }, 3000);
+    }, delay);
+    this.currentReconnectDelay = nextBackoffDelay(this.currentReconnectDelay, this.reconnectMaxMs);
   }
 }
