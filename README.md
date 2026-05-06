@@ -8,10 +8,11 @@ official Android APK (`com.ifavine.appkettle` 1.3.9) and the
 
 Provides:
 
-- A pure-TypeScript **protocol library** (`src/protocol.ts`)
-- A **TCP client** (`src/client.ts`) with auto-reconnect and status polling
-- A **CLI** (`src/cli.ts`) for sanity-testing
+- A pure-TypeScript **protocol library** (`src/protocol/`) — hex helpers, frame builders, command builders, and reply parsers in focused modules
+- A **TCP client** (`src/client.ts`) with exponential-backoff reconnect and status caching from heartbeats
+- A **CLI** (`src/cli.ts`) for sanity-testing and one-shot Wi-Fi pairing
 - An **MCP server** (`src/mcp.ts`, stdio transport) for Claude Code / Desktop
+- Typed error classes (`src/errors.ts`) and a leveled stderr logger (`src/logger.ts`)
 
 A native phone app and a Raspberry Pi host for remote access (via Tailscale) are planned.
 
@@ -35,7 +36,9 @@ npm run cli setup        # interactive Wi-Fi pairing (see "Pairing the kettle")
 ```
 
 If `KETTLE_IP` / `KETTLE_IMEI` env vars are set, those are used; otherwise the
-client auto-discovers via UDP broadcast on port 15103.
+client auto-discovers via UDP broadcast on port 15103. Set `LOG_LEVEL` to
+`debug | info | warn | error` (default `info`) to control log verbosity — logs
+go to stderr to keep MCP stdio clean.
 
 ## MCP server
 
@@ -107,3 +110,19 @@ during setup — Wi-Fi credentials can't be pushed over the home network.
 - Across inner: `AA + frameLen(4) + prefix(4) + msgUnique(12) + serial(2) + api(2) + retain(4) + content + sign(2)` (with `0xAA` byte-stuffed to `AA55`)
 - `data1`-style replies (`wifi_cmd:61`) are unrelated red herrings — the real protocol is binary inside `data2`.
 - Discovery: UDP/15103 broadcast `Probe#YYYY-MM-DD-HH-MM-SS-1`; reply has the kettle's IMEI, version, and `deviceStatus` blob.
+
+## Development
+
+```bash
+npm run lint        # ESLint (typescript-eslint recommended)
+npm run typecheck   # tsc --noEmit
+npm test            # node --test via tsx
+npm run format      # prettier --write
+```
+
+CI runs `lint → typecheck → test` on every push and PR. `prepublishOnly`
+runs the same gauntlet plus `build` before allowing `npm publish`.
+
+## License
+
+[MIT](./LICENSE)
