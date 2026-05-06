@@ -13,6 +13,7 @@ import {
   buildWire,
   cmdGetSearchWifiLists,
   cmdGetStatus,
+  cmdSetKettleOn,
   cmdSetKettleStandby,
   cmdSetStartBoil,
   cmdSetStartKeepWarm,
@@ -126,7 +127,20 @@ export class KettleClient extends EventEmitter {
   }
 
   async boil(args: BoilArgs = {}): Promise<void> {
+    // Wake from Standby first if needed: the kettle returns ack=00 to SET_START_BOIL
+    // when it's been idle in Standby. If the cached state shows it's already heating,
+    // skip the wake to avoid a redundant round trip.
+    const cached = this.status;
+    if (!cached || (cached.state !== "Heating" && cached.state !== "Keep Warm")) {
+      await this.kettleOn();
+    }
     const reply = await this.send(cmdSetStartBoil(this.nextSerial(), args));
+    this.assertOk(reply);
+  }
+
+  /** Wake the kettle from Standby. Boil() calls this for you when needed. */
+  async kettleOn(): Promise<void> {
+    const reply = await this.send(cmdSetKettleOn(this.nextSerial()));
     this.assertOk(reply);
   }
 

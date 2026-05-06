@@ -59,3 +59,8 @@ export const cmdSetStopKeepWarm = (serial: number) =>
 
 export const cmdSetKettleStandby = (serial: number) =>
   ({ api: API.SET_KETTLE_STANDBY, serial }) satisfies FrameOpts;
+
+// Wake the kettle from standby. Required before SET_START_BOIL on some firmware:
+// a kettle that's been idle in Standby will reject 39 with ack=00 until woken.
+export const cmdSetKettleOn = (serial: number) =>
+  ({ api: API.SET_KETTLE_ON, serial }) satisfies FrameOpts;

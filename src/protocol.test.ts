@@ -7,6 +7,7 @@ import {
   buildAcrossFrame,
   buildWire,
   cmdGetStatus,
+  cmdSetKettleOn,
   cmdSetStartBoil,
   cmdSetStopBoil,
   cmdSetUpperWifi,
@@ -76,6 +77,12 @@ test("cmdSetStartBoil encodes boilType+temp+keepWarm+brew+delay", () => {
 test("cmdSetStartBoil defaults to 100°C, no keep-warm", () => {
   const opts = cmdSetStartBoil(1);
   assert.equal(opts.content, "0064000000");
+});
+
+test("cmdSetKettleOn produces empty content with api 41", () => {
+  const opts = cmdSetKettleOn(3);
+  assert.equal(opts.api, API.SET_KETTLE_ON);
+  assert.equal(opts.serial, 3);
 });
 
 test("cmdGetStatus and cmdSetStopBoil have correct api codes and no content", () => {

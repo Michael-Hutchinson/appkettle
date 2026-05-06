@@ -19,6 +19,7 @@ export {
   API,
   cmdGetSearchWifiLists,
   cmdGetStatus,
+  cmdSetKettleOn,
   cmdSetKettleStandby,
   cmdSetStartBoil,
   cmdSetStartKeepWarm,
