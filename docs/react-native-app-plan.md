@@ -12,21 +12,19 @@ This document is the spec. Read it cold and you should be able to start coding.
 
 If you're picking this up fresh:
 
-- The user is **Michael Hutchinson** (JS/React dev). Lives with a girlfriend
-  who has an iPhone; he has Android.
-- He owns one **AppKettle** smart kettle. The vendor (iFavine) and their cloud
-  (jingxuncloud) are defunct. The kettle still works locally on TCP/6002 using
-  a custom protocol they call "Across" — reverse-engineered from the official
-  Android APK earlier in the project.
+- The target hardware is the **AppKettle** smart kettle from iFavine. The
+  vendor and their cloud (`jingxuncloud`) are defunct. The kettle still works
+  locally on TCP/6002 using a custom protocol they call "Across" — reverse-
+  engineered from the official Android APK earlier in this project.
 - The Node-side bridge already exists in this repo (`appkettle`) — protocol
   library, TCP client, UDP discovery, MCP servers (stdio + HTTP), CLI. All
-  tested, CI'd, working in production against the real kettle.
+  tested, CI'd, working in production against a real kettle.
 - The phone app is a **separate project** in a **new repo** (`appkettle-app`).
-  Not started yet. This plan is what that session should follow.
-- Kettle's IMEI: `GD0-12900-7a00`. Current LAN IP: `192.168.1.202` (DHCP-assigned
-  — discovery is reliable so don't hard-code).
-- The plan was agreed in a long session on **2026-05-06**. User chose React
-  Native because he writes JS already and wants one codebase.
+  This plan is what that session should follow.
+- The kettle's IMEI and LAN IP are discovered at runtime via UDP broadcast
+  (don't hard-code them — DHCP can reassign the IP, and IMEI is per-device).
+- Stack chosen as React Native (single codebase for both platforms; JS/React
+  expertise already in the project).
 
 ### Decisions already made
 
@@ -44,7 +42,6 @@ If you're picking this up fresh:
 ### Decisions deferred
 
 - Repo name (`appkettle-app` proposed)
-- Public vs private GitHub (probably match parent: private until V1 ships)
 - Theme: dark/light/system (system default proposed)
 - Whether to extract `protocol/` to a published npm package (start by copying)
 
@@ -308,7 +305,7 @@ or be omitted (broadcast to `255.255.255.255` only is usually enough).
 │  │   Boil    │  │   Stop    │   │
 │  └───────────┘  └───────────┘   │
 │                                 │
-│  ● connected to 192.168.1.202   │
+│  ● connected to <your-kettle-ip>   │
 └─────────────────────────────────┘
 ```
 

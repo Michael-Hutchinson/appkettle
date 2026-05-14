@@ -9,8 +9,8 @@ test("parseEnv accepts an empty environment (all fields optional)", () => {
 
 test("parseEnv accepts well-formed values and coerces port to number", () => {
   const r = parseEnv({
-    KETTLE_IP: "192.168.1.202",
-    KETTLE_IMEI: "GD0-12900-7a00",
+    KETTLE_IP: "10.0.0.1",
+    KETTLE_IMEI: "TEST-IMEI-000",
     LOG_LEVEL: "debug",
     MCP_HTTP_HOST: "0.0.0.0",
     MCP_HTTP_PORT: "8080",

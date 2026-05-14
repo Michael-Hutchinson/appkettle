@@ -62,7 +62,7 @@ claude mcp add-json appkettle '{
   "type": "stdio",
   "command": "node",
   "args": ["/absolute/path/to/appkettle/dist/mcp.js"],
-  "env": { "KETTLE_IP": "192.168.1.202", "KETTLE_IMEI": "GD0-12900-7a00" }
+  "env": { "KETTLE_IP": "<your-kettle-ip>", "KETTLE_IMEI": "<your-kettle-imei>" }
 }' -s user
 ```
 
@@ -76,7 +76,10 @@ Verify with `claude mcp list` — should show `appkettle: ✓ Connected`.
     "appkettle": {
       "command": "node",
       "args": ["/absolute/path/to/appkettle/dist/mcp.js"],
-      "env": { "KETTLE_IP": "192.168.1.202", "KETTLE_IMEI": "GD0-12900-7a00" }
+      "env": {
+        "KETTLE_IP": "<your-kettle-ip>",
+        "KETTLE_IMEI": "<your-kettle-imei>"
+      }
     }
   }
 }

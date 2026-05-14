@@ -4,3 +4,7 @@ dist/
 .env
 .env.local
 .DS_Store
+
+# Superpowers session artifacts (brainstorm sessions, generated specs, plans)
+.superpowers/
+docs/superpowers/
