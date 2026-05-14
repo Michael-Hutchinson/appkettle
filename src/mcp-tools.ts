@@ -9,29 +9,63 @@ import { type Logger } from "./logger.js";
 import { VERSION } from "./version.js";
 
 /**
+ * Idle timeout: once no MCP tool has touched the kettle for this long, close the
+ * TCP socket so other clients on the LAN (e.g. the phone app) aren't blocked.
+ * The kettle accepts multiple TCP connections but only speaks on one — so an
+ * always-open MCP socket starves everything else. Each tool call reschedules
+ * this timer; the connection re-establishes lazily on the next call.
+ */
+const IDLE_DISCONNECT_MS = 60_000;
+
+/**
  * Owns the single KettleClient shared across MCP tool invocations and the cached config.
  * Made module-scoped at the entry point so multiple HTTP sessions share one TCP connection
- * to the kettle.
+ * to the kettle while the server is actively serving requests; idle disconnects after
+ * IDLE_DISCONNECT_MS so the phone app / other LAN clients can use the kettle when MCP isn't.
  */
 export class KettleManager {
   private client: KettleClient | null = null;
   private cachedConfig: KettleConfig | null = null;
   // Deduplicate concurrent ensure() calls so a tool invocation landing during
-  // pre-warm (or another in-flight ensure) doesn't race and open a second TCP socket.
+  // another in-flight ensure doesn't race and open a second TCP socket.
   private connecting: Promise<KettleClient> | null = null;
+  private idleTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly log: Logger) {}
 
   async ensure(): Promise<KettleClient> {
-    if (this.client) return this.client;
-    if (this.connecting) return this.connecting;
-
-    this.connecting = this.doEnsure();
+    // Any new activity cancels the pending idle close.
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = null;
+    }
     try {
+      if (this.client) return this.client;
+      if (this.connecting) return this.connecting;
+
+      this.connecting = this.doEnsure();
       return await this.connecting;
     } finally {
       this.connecting = null;
+      // Reschedule the idle disconnect on every ensure(), so as long as tools
+      // keep firing the connection stays warm.
+      this.scheduleIdleDisconnect();
     }
+  }
+
+  private scheduleIdleDisconnect(): void {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => {
+      this.idleTimer = null;
+      if (this.client) {
+        this.log.info(`Idle ${IDLE_DISCONNECT_MS}ms — releasing kettle socket`);
+        this.client.close();
+        this.client = null;
+      }
+    }, IDLE_DISCONNECT_MS);
+    // Don't keep the Node event loop alive just to fire this disconnect — the
+    // process should exit cleanly when its other work (stdio/HTTP) finishes.
+    this.idleTimer.unref?.();
   }
 
   private async doEnsure(): Promise<KettleClient> {
@@ -62,6 +96,10 @@ export class KettleManager {
 
   /** Close any active client; next ensure() will reconnect. */
   reset(): void {
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = null;
+    }
     this.client?.close();
     this.client = null;
   }
