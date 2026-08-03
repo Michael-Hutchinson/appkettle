@@ -18,8 +18,16 @@ What's here:
 - The **TypeScript library** underneath both, if you want to build something
   else on top
 
-A native phone app and a Raspberry Pi host for remote access (via Tailscale)
-are planned.
+There's also a phone app built on this protocol work:
+**[Kettle Remote](https://kettle.michaelhutchinson.me)**, for iOS and Android,
+taking the same local-only approach. It's heading to the App Store and Google
+Play.
+
+For remote access, the MCP HTTP server below is meant to run on an always-on
+host such as a Raspberry Pi, reachable over Tailscale.
+
+If you want the story of how the protocol was worked out, there's a
+[write-up](https://michaelhutchinson.me/blog/reverse-engineering-a-dead-smart-kettle).
 
 ## Setup
 
