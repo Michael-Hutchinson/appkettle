@@ -213,6 +213,18 @@ physical kettle.
 CI runs `lint → typecheck → test` on every push and PR. `prepublishOnly`
 runs the same gauntlet plus `build` before allowing `npm publish`.
 
+## Not affiliated with the manufacturer
+
+AppKettle is a product of iFavine, which was dissolved in 2023. This project is
+independent: not made by, endorsed by or connected to that company or anyone who
+acquired its assets. The name is used only to say which kettle the code talks to.
+
+The protocol was worked out by examining the manufacturer's own Android app in
+order to keep hardware working after the service it depended on was switched
+off. Nothing here circumvents a protection measure or unlocks paid
+functionality; it re-implements a local network protocol so that a kettle you
+own keeps doing what it did when you bought it.
+
 ## License
 
 [MIT](./LICENSE)
