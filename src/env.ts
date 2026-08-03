@@ -1,5 +1,5 @@
 // Validate environment configuration at startup. Call validateEnv() at the top of every
-// entry point (cli.ts, mcp.ts, mcp-http.ts) — exits the process with a clear, listed
+// entry point (cli.ts, mcp.ts, mcp-http.ts). Exits the process with a clear, listed
 // error if anything's malformed.
 //
 // All fields are optional: the existing fallbacks (auto-discovery, default ports, etc.)
@@ -19,8 +19,9 @@ const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>;
 
-/** Pure parser — testable, no side effects. */
-export const parseEnv = (raw: Record<string, unknown>) => envSchema.safeParse(raw);
+/** Pure parser: testable, no side effects. */
+export const parseEnv = (raw: Record<string, unknown>) =>
+  envSchema.safeParse(raw);
 
 let cached: Env | null = null;
 

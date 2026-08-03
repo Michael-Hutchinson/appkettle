@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// MCP server (stdio transport) — Claude Code/Desktop spawn this as a subprocess.
+// MCP server (stdio transport). Claude Code/Desktop spawn this as a subprocess.
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { validateEnv } from "./env.js";
 import { createLogger } from "./logger.js";
@@ -24,7 +24,7 @@ const main = async (): Promise<void> => {
   log.info("MCP server ready on stdio");
 
   // No pre-warm: the manager connects lazily on the first tool call and
-  // disconnects after IDLE_DISCONNECT_MS of inactivity. This is intentional —
+  // disconnects after IDLE_DISCONNECT_MS of inactivity. This is intentional:
   // a persistent MCP socket would block the phone app (and any other LAN
   // client) from talking to the kettle, since the device only responds on one
   // connection at a time.

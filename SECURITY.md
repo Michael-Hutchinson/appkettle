@@ -18,9 +18,9 @@ within 30 days for high-severity issues.
 This project talks directly to a smart kettle on your local network. It does not
 connect to any cloud service. The relevant attack surface is:
 
-- **The TCP client** (`src/client.ts`) — connects to the kettle on port 6002 and
+- **The TCP client** (`src/client.ts`) connects to the kettle on port 6002 and
   exchanges binary frames. Only the kettle's IP and IMEI need to be trusted.
-- **The HTTP MCP server** (`src/mcp-http.ts`) — exposes the kettle to MCP clients
+- **The HTTP MCP server** (`src/mcp-http.ts`) exposes the kettle to MCP clients
   over HTTP. It defaults to binding `127.0.0.1` so it isn't reachable off the
   host without explicit configuration.
 

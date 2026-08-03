@@ -6,7 +6,7 @@
 // reachable from your MCP clients (e.g. via Tailscale).
 //
 // Config (env vars):
-//   MCP_HTTP_HOST     bind address (default 127.0.0.1 — local only; set to 0.0.0.0
+//   MCP_HTTP_HOST     bind address (default 127.0.0.1, local only; set to 0.0.0.0
 //                     or your Tailscale IP to expose on the network)
 //   MCP_HTTP_PORT     port (default 8080)
 //   MCP_AUTH_TOKEN    if set, requests must send Authorization: Bearer <token>;
@@ -54,7 +54,7 @@ if (authToken) {
 // Active sessions, keyed by mcp-session-id header.
 const transports: Record<string, StreamableHTTPServerTransport> = {};
 
-// Health endpoint — outside the auth middleware would be cleaner for prod monitoring,
+// Health endpoint. Outside the auth middleware would be cleaner for prod monitoring,
 // but for a tailnet-only service requiring the same token everywhere is fine.
 app.get("/healthz", (_req, res) => {
   res.json({
@@ -124,7 +124,7 @@ app.delete("/mcp", handleSessionRequest);
 const httpServer = app.listen(port, host, () => {
   log.info(`MCP HTTP server ready on http://${host}:${port}/mcp`);
   if (!authToken)
-    log.warn("MCP_AUTH_TOKEN not set — endpoint is unauthenticated");
+    log.warn("MCP_AUTH_TOKEN not set: endpoint is unauthenticated");
 
   // Pre-warm so the first tool call from any session is fast.
   manager

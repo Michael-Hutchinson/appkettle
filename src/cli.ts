@@ -76,11 +76,11 @@ const runSetup = async (client: KettleClient): Promise<void> => {
     console.error("\nSending Wi-Fi credentials to kettle...");
     try {
       await client.setUpperWifi(target.essidHex, password);
-      console.log("OK — kettle accepted credentials.");
+      console.log("OK: kettle accepted credentials.");
     } catch (e) {
       if (isConnectionLossError(e)) {
         console.log(
-          "Kettle dropped the connection — that's expected; it's bouncing onto your network.",
+          "Kettle dropped the connection. That's expected; it's bouncing onto your network.",
         );
       } else {
         throw e;
@@ -97,7 +97,7 @@ const runSetup = async (client: KettleClient): Promise<void> => {
 const main = async (): Promise<void> => {
   const cmd = process.argv[2];
 
-  // Handle -h / -v BEFORE env validation or any I/O — these flags must work even
+  // Handle -h / -v BEFORE env validation or any I/O. These flags must work even
   // if the env is misconfigured.
   if (!cmd || cmd === "-h" || cmd === "--help") {
     console.log(USAGE);
@@ -135,17 +135,17 @@ const main = async (): Promise<void> => {
         const keepWarmMinutes = process.argv[4] ? Number(process.argv[4]) : 0;
         await client.boil({ targetTemp, keepWarmMinutes });
         console.log(
-          `OK — boiling to ${targetTemp}°C${keepWarmMinutes ? `, keep warm ${keepWarmMinutes}m` : ""}`,
+          `OK: boiling to ${targetTemp}°C${keepWarmMinutes ? `, keep warm ${keepWarmMinutes}m` : ""}`,
         );
         break;
       }
       case "stop":
         await client.stop();
-        console.log("OK — stopped");
+        console.log("OK: stopped");
         break;
       case "standby":
         await client.standby();
-        console.log("OK — standby");
+        console.log("OK: standby");
         break;
       case "setup":
         await runSetup(client);

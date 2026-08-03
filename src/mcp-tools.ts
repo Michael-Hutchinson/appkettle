@@ -11,7 +11,7 @@ import { VERSION } from "./version.js";
 /**
  * Idle timeout: once no MCP tool has touched the kettle for this long, close the
  * TCP socket so other clients on the LAN (e.g. the phone app) aren't blocked.
- * The kettle accepts multiple TCP connections but only speaks on one — so an
+ * The kettle accepts multiple TCP connections but only speaks on one, so an
  * always-open MCP socket starves everything else. Each tool call reschedules
  * this timer; the connection re-establishes lazily on the next call.
  */
@@ -58,12 +58,12 @@ export class KettleManager {
     this.idleTimer = setTimeout(() => {
       this.idleTimer = null;
       if (this.client) {
-        this.log.info(`Idle ${IDLE_DISCONNECT_MS}ms — releasing kettle socket`);
+        this.log.info(`Idle ${IDLE_DISCONNECT_MS}ms: releasing kettle socket`);
         this.client.close();
         this.client = null;
       }
     }, IDLE_DISCONNECT_MS);
-    // Don't keep the Node event loop alive just to fire this disconnect — the
+    // Don't keep the Node event loop alive just to fire this disconnect. The
     // process should exit cleanly when its other work (stdio/HTTP) finishes.
     this.idleTimer.unref?.();
   }

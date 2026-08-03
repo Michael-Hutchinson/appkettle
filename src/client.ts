@@ -125,7 +125,7 @@ export class KettleClient extends EventEmitter<KettleClientEvents> {
 
   close(): void {
     this.wantOpen = false;
-    // End the socket BEFORE cleanup() — cleanup() nulls this.sock as part of clearing state,
+    // End the socket BEFORE cleanup(), which nulls this.sock as part of clearing state,
     // so calling end() afterwards would be a no-op and leave the TCP connection hanging.
     this.sock?.end();
     this.cleanup();
@@ -133,7 +133,7 @@ export class KettleClient extends EventEmitter<KettleClientEvents> {
 
   /**
    * Connect and resolve once the kettle's first frame arrives (the "ready" signal).
-   * The timeout covers both phases — TCP connect AND first inbound frame — so a server
+   * The timeout covers both phases, TCP connect and first inbound frame, so a server
    * that accepts the socket but never speaks won't hang the call.
    * Rejects with KettleConnectError on timeout, or the underlying error on socket failure.
    */
@@ -152,7 +152,11 @@ export class KettleClient extends EventEmitter<KettleClientEvents> {
       const timer = setTimeout(
         () =>
           settle(() =>
-            reject(new KettleConnectError(`Connect timeout to ${this.ip}:${this.port} after ${timeoutMs}ms`)),
+            reject(
+              new KettleConnectError(
+                `Connect timeout to ${this.ip}:${this.port} after ${timeoutMs}ms`,
+              ),
+            ),
           ),
         timeoutMs,
       );
@@ -170,7 +174,8 @@ export class KettleClient extends EventEmitter<KettleClientEvents> {
   async pollStatus(): Promise<KettleStatus> {
     const reply = await this.send(cmdGetStatus(this.nextSerial()));
     const s = parseStatus(reply.content);
-    if (!s) throw new KettleProtocolError(`Unparseable status: ${reply.content}`);
+    if (!s)
+      throw new KettleProtocolError(`Unparseable status: ${reply.content}`);
     this.updateStatus(s);
     return s;
   }
@@ -180,7 +185,10 @@ export class KettleClient extends EventEmitter<KettleClientEvents> {
     // when it's been idle in Standby. If the cached state shows it's already heating,
     // skip the wake to avoid a redundant round trip.
     const cached = this.status;
-    if (!cached || (cached.state !== "Heating" && cached.state !== "Keep Warm")) {
+    if (
+      !cached ||
+      (cached.state !== "Heating" && cached.state !== "Keep Warm")
+    ) {
       await this.kettleOn();
     }
     const reply = await this.send(cmdSetStartBoil(this.nextSerial(), args));
@@ -223,19 +231,29 @@ export class KettleClient extends EventEmitter<KettleClientEvents> {
 
   /** Tell the kettle to join a Wi-Fi network. essidHex is the BSSID from a scan entry. */
   async setUpperWifi(essidHex: string, password: string): Promise<void> {
-    const reply = await this.send(cmdSetUpperWifi(this.nextSerial(), essidHex, password));
+    const reply = await this.send(
+      cmdSetUpperWifi(this.nextSerial(), essidHex, password),
+    );
     this.assertOk(reply);
   }
 
   /**
    * Resolve when the kettle leaves the Heating state, or (if targetTemp is given) when its
-   * current temperature reaches that target — whichever happens first. Rejects on timeout.
+   * current temperature reaches that target, whichever happens first. Rejects on timeout.
    */
-  waitUntilReady(opts: { targetTemp?: number; timeoutMs?: number } = {}): Promise<KettleStatus> {
+  waitUntilReady(
+    opts: { targetTemp?: number; timeoutMs?: number } = {},
+  ): Promise<KettleStatus> {
     const timeoutMs = opts.timeoutMs ?? 300_000;
     const isReady = (s: KettleStatus): boolean => {
-      if (s.state === "Ready" || s.state === "Keep Warm" || s.state === "Standby") return true;
-      if (opts.targetTemp != null && s.temperature >= opts.targetTemp) return true;
+      if (
+        s.state === "Ready" ||
+        s.state === "Keep Warm" ||
+        s.state === "Standby"
+      )
+        return true;
+      if (opts.targetTemp != null && s.temperature >= opts.targetTemp)
+        return true;
       return false;
     };
 
@@ -272,14 +290,20 @@ export class KettleClient extends EventEmitter<KettleClientEvents> {
   }
 
   private send(frame: FrameOpts): Promise<AcrossReply> {
-    if (!this.sock || !this.sock.writable) return Promise.reject(new KettleNotConnectedError());
+    if (!this.sock || !this.sock.writable)
+      return Promise.reject(new KettleNotConnectedError());
     const wire = buildWire(this.imei, frame);
     return new Promise<AcrossReply>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending = this.pending.filter((p) => p !== entry);
         reject(new KettleTimeoutError(frame.api, COMMAND_TIMEOUT_MS));
       }, COMMAND_TIMEOUT_MS);
-      const entry: PendingResponse = { api: frame.api.toUpperCase(), resolve, reject, timer };
+      const entry: PendingResponse = {
+        api: frame.api.toUpperCase(),
+        resolve,
+        reject,
+        timer,
+      };
       this.pending.push(entry);
       this.sock!.write(wire, (err) => {
         if (err) {
@@ -321,7 +345,9 @@ export class KettleClient extends EventEmitter<KettleClientEvents> {
     }
 
     // Match to oldest pending request with this API code
-    const idx = this.pending.findIndex((p) => p.api === reply.api.toUpperCase());
+    const idx = this.pending.findIndex(
+      (p) => p.api === reply.api.toUpperCase(),
+    );
     if (idx >= 0) {
       const [pending] = this.pending.splice(idx, 1);
       clearTimeout(pending.timer);
@@ -366,6 +392,9 @@ export class KettleClient extends EventEmitter<KettleClientEvents> {
       this.reconnectTimer = null;
       if (this.wantOpen) this.connect();
     }, delay);
-    this.currentReconnectDelay = nextBackoffDelay(this.currentReconnectDelay, this.reconnectMaxMs);
+    this.currentReconnectDelay = nextBackoffDelay(
+      this.currentReconnectDelay,
+      this.reconnectMaxMs,
+    );
   }
 }

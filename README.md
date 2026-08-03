@@ -1,7 +1,7 @@
 # appkettle
 
 The AppKettle is a Wi-Fi kettle. The company that made it shut down their
-cloud service, so the official app stopped working — overnight, my smart
+cloud service, so the official app stopped working. Overnight, my smart
 kettle was just a kettle.
 
 This project makes it smart again. It talks to the kettle directly over your
@@ -42,12 +42,12 @@ npm run cli setup        # interactive Wi-Fi pairing (see "Pairing the kettle")
 
 If `KETTLE_IP` / `KETTLE_IMEI` env vars are set, those are used; otherwise the
 client auto-discovers via UDP broadcast on port 15103. Set `LOG_LEVEL` to
-`debug | info | warn | error` (default `info`) to control log verbosity — logs
+`debug | info | warn | error` (default `info`) to control log verbosity. Logs
 go to stderr to keep MCP stdio clean.
 
 ## MCP server
 
-There are two transports. Most people want the **stdio** one — it's what Claude
+There are two transports. Most people want the **stdio** one: it's what Claude
 Code and Claude Desktop expect. The **HTTP** one is for running on an always-on
 host (e.g. a Raspberry Pi) so MCP clients elsewhere on your network can reach it.
 
@@ -55,7 +55,7 @@ host (e.g. a Raspberry Pi) so MCP clients elsewhere on your network can reach it
 
 After `npm run build`:
 
-**Claude Code** — register via the CLI (canonical method):
+**Claude Code**: register via the CLI (canonical method):
 
 ```bash
 claude mcp add-json appkettle '{
@@ -66,9 +66,9 @@ claude mcp add-json appkettle '{
 }' -s user
 ```
 
-Verify with `claude mcp list` — should show `appkettle: ✓ Connected`.
+Verify with `claude mcp list`; it should show `appkettle: ✓ Connected`.
 
-**Claude Desktop** — same shape in `~/Library/Application Support/Claude/claude_desktop_config.json`:
+**Claude Desktop**: same shape in `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
@@ -87,15 +87,15 @@ Verify with `claude mcp list` — should show `appkettle: ✓ Connected`.
 
 Restart Claude. Tools available:
 
-- `kettle_status` — current temp / state / volume
-- `kettle_boil` — start a boil (optional `target_temp`, `keep_warm_minutes`); auto-wakes the kettle from Standby
-- `kettle_on` — explicitly wake from Standby (rarely needed since `kettle_boil` auto-wakes)
-- `kettle_stop` — cancel boil / keep-warm
-- `kettle_standby` — display off
-- `kettle_keep_warm_start` — engage keep-warm at the current target temp
-- `kettle_keep_warm_stop` — cancel keep-warm
-- `kettle_wait_until_ready` — block until heating finishes or `target_temp` is reached
-- `kettle_discover` — re-find IP if your DHCP lease changed
+- `kettle_status`: current temp / state / volume
+- `kettle_boil`: start a boil (optional `target_temp`, `keep_warm_minutes`); auto-wakes the kettle from Standby
+- `kettle_on`: explicitly wake from Standby (rarely needed since `kettle_boil` auto-wakes)
+- `kettle_stop`: cancel boil / keep-warm
+- `kettle_standby`: display off
+- `kettle_keep_warm_start`: engage keep-warm at the current target temp
+- `kettle_keep_warm_stop`: cancel keep-warm
+- `kettle_wait_until_ready`: block until heating finishes or `target_temp` is reached
+- `kettle_discover`: re-find IP if your DHCP lease changed
 
 ### HTTP (Pi host / remote access)
 
@@ -114,13 +114,13 @@ node dist/mcp-http.js
 
 Config (env vars):
 
-- `MCP_HTTP_HOST` — bind address. Default `127.0.0.1` (local-only). Set to your
+- `MCP_HTTP_HOST`: bind address. Default `127.0.0.1` (local-only). Set to your
   Tailscale IP or `0.0.0.0` to listen on all interfaces.
-- `MCP_HTTP_PORT` — port. Default `8080`.
-- `MCP_AUTH_TOKEN` — if set, every request must include
+- `MCP_HTTP_PORT`: port. Default `8080`.
+- `MCP_AUTH_TOKEN`: if set, every request must include
   `Authorization: Bearer <token>`. If unset, the endpoint is unauthenticated
   (acceptable on a tailnet, **not** acceptable if exposed to the open internet).
-- `KETTLE_IP` / `KETTLE_IMEI` / `LOG_LEVEL` — same as stdio.
+- `KETTLE_IP` / `KETTLE_IMEI` / `LOG_LEVEL`: same as stdio.
 
 Smoke test from another machine:
 
@@ -136,7 +136,7 @@ curl -X POST http://<host>:8080/mcp \
 
 Use this when the kettle has no Wi-Fi credentials yet (new kettle, house move,
 or a router change). Pairing requires your laptop to be on the kettle's own AP
-during setup — Wi-Fi credentials can't be pushed over the home network.
+during setup. Wi-Fi credentials can't be pushed over the home network.
 
 1. Long-press the kettle's button until it enters pairing mode.
 2. Connect your laptop to the kettle's AP (typically `AK_Kettle`).
@@ -183,14 +183,14 @@ Dockerfile                   multi-stage Alpine build, runs the HTTP server
 Three concentric layers: `protocol/` is pure functions, `client.ts` adds TCP +
 state, the entry points (`cli`, `mcp`, `mcp-http`) wire everything to a transport.
 Adding a new transport (e.g. WebSocket) means a new `mcp-*.ts` file that calls
-`buildKettleServer(manager)` from `mcp-tools.ts` — nothing else has to change.
+`buildKettleServer(manager)` from `mcp-tools.ts`; nothing else has to change.
 
 ## Protocol notes
 
 - Wire frame: `##00<2-hex-len>{json}&&`
 - JSON: `{"app_cmd":"62","imei":"...","SubDev":"","data2":"<across-hex>"}`
 - Across inner: `AA + frameLen(4) + prefix(4) + msgUnique(12) + serial(2) + api(2) + retain(4) + content + sign(2)` (with `0xAA` byte-stuffed to `AA55`)
-- `data1`-style replies (`wifi_cmd:61`) are unrelated red herrings — the real protocol is binary inside `data2`.
+- `data1`-style replies (`wifi_cmd:61`) are unrelated red herrings. The real protocol is binary inside `data2`.
 - Discovery: UDP/15103 broadcast `Probe#YYYY-MM-DD-HH-MM-SS-1`; reply has the kettle's IMEI, version, and `deviceStatus` blob.
 
 ## Development
@@ -201,7 +201,7 @@ npm run dev:http    # HTTP MCP server (tsx)
 npm run cli <cmd>   # see Quick CLI test above
 npm run lint        # ESLint (typescript-eslint recommended)
 npm run typecheck   # tsc --noEmit
-npm test            # node --test via tsx — unit tests + TCP integration tests
+npm test            # node --test via tsx: unit tests + TCP integration tests
 npm run format      # prettier --write
 ```
 
