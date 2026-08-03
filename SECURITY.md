@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 If you find a security issue in `appkettle`, please **don't open a public issue**.
-Email the maintainer at <michael-hutchinson@hotmail.co.uk> with:
+Email the maintainer at <support@michaelhutchinson.me> with:
 
 - A description of the issue
 - Steps to reproduce
