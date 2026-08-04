@@ -37,3 +37,19 @@ test("parseEnv rejects a too-short MCP_AUTH_TOKEN", () => {
   const r = parseEnv({ MCP_AUTH_TOKEN: "short" });
   assert.equal(r.success, false);
 });
+
+test("accepts bridge vars", () => {
+  const r = parseEnv({
+    MQTT_URL: "mqtt://hub:pw@mosquitto:1883",
+    BRIDGE_IDLE_POLL_MS: "90000",
+    BRIDGE_ACTIVE_POLL_MS: "5000",
+  });
+  assert.ok(r.success);
+  assert.equal(r.data?.MQTT_URL, "mqtt://hub:pw@mosquitto:1883");
+  assert.equal(r.data?.BRIDGE_IDLE_POLL_MS, 90000);
+});
+
+test("rejects malformed bridge vars", () => {
+  assert.equal(parseEnv({ MQTT_URL: "not a url" }).success, false);
+  assert.equal(parseEnv({ BRIDGE_IDLE_POLL_MS: "50" }).success, false);
+});

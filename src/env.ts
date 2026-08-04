@@ -15,6 +15,10 @@ const envSchema = z.object({
   MCP_HTTP_PORT: z.coerce.number().int().min(1).max(65535).optional(),
   // Bearer token must be at least 16 chars when set, to discourage weak secrets.
   MCP_AUTH_TOKEN: z.string().min(16).optional(),
+  // Bridge (MQTT) settings. MQTT_URL switches the MQTT bridge on in bridge.ts.
+  MQTT_URL: z.string().url().optional(),
+  BRIDGE_IDLE_POLL_MS: z.coerce.number().int().min(1000).optional(),
+  BRIDGE_ACTIVE_POLL_MS: z.coerce.number().int().min(1000).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
