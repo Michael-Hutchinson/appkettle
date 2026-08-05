@@ -24,6 +24,25 @@ export const redactUrl = (raw: string): string => {
   }
 };
 
+/**
+ * A struggling kettle shouldn't be hammered on a fixed cadence: repeated
+ * failures double the wait, up to a cap.
+ */
+export const nextPollDelay = (opts: {
+  active: boolean;
+  failures: number;
+  activePollMs: number;
+  idlePollMs: number;
+  maxBackoffMs: number;
+}): number => {
+  if (opts.failures === 0)
+    return opts.active ? opts.activePollMs : opts.idlePollMs;
+  return Math.min(
+    opts.idlePollMs * 2 ** (opts.failures - 1),
+    opts.maxBackoffMs,
+  );
+};
+
 export interface BridgeKettle {
   pollStatus(): Promise<KettleStatus>;
   boil(args: { targetTemp?: number; keepWarmMinutes?: number }): Promise<void>;
@@ -42,6 +61,7 @@ export interface BridgeOpts {
   url: string;
   idlePollMs?: number;
   activePollMs?: number;
+  maxBackoffMs?: number;
 }
 
 interface StatePayload extends KettleStatus {
@@ -177,6 +197,8 @@ export class MqttBridge {
   private stopping = false;
   private readonly idlePollMs: number;
   private readonly activePollMs: number;
+  private readonly maxBackoffMs: number;
+  private failures = 0;
 
   constructor(
     private readonly source: KettleSource,
@@ -185,6 +207,7 @@ export class MqttBridge {
   ) {
     this.idlePollMs = opts.idlePollMs ?? 90_000;
     this.activePollMs = opts.activePollMs ?? 5_000;
+    this.maxBackoffMs = opts.maxBackoffMs ?? 15 * 60_000;
   }
 
   async start(): Promise<void> {
@@ -246,12 +269,25 @@ export class MqttBridge {
       this.active = ACTIVE_STATES.has(s.state);
       await this.publishState(false);
       if (!this.active) this.source.release();
+      this.failures = 0;
     } catch (e) {
-      // Most likely the phone app holds the kettle.
-      this.log.warn(`kettle unavailable this tick: ${String(e)}`);
+      // Most likely the phone app holds the kettle, or it's off the network.
+      this.failures += 1;
+      const wait = nextPollDelay({
+        active: false,
+        failures: this.failures,
+        activePollMs: this.activePollMs,
+        idlePollMs: this.idlePollMs,
+        maxBackoffMs: this.maxBackoffMs,
+      });
+      this.log.warn(
+        `kettle unavailable this tick (failure ${this.failures}, next attempt in ${Math.round(wait / 1000)}s): ${String(e)}`,
+      );
       this.active = false;
       this.source.release();
       await this.safePublishState(true);
+      this.schedule(wait);
+      return;
     }
     this.schedule(this.active ? this.activePollMs : this.idlePollMs);
   }

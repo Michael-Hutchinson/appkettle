@@ -142,7 +142,7 @@ export class KettleManager {
     const c = new KettleClient(cfg);
     c.on("error", (e) => this.log.error("client error:", e.message));
     c.on("connect", () => this.log.info("connected"));
-    c.on("close", () => this.log.info("disconnected (will auto-reconnect)"));
+    c.on("close", () => this.log.info("disconnected"));
     c.on("unmatched", (reply) => this.log.debug("unmatched reply:", reply.api));
     try {
       await c.connectAndWait();

@@ -3,7 +3,12 @@ import assert from "node:assert/strict";
 import { createServer, type Server } from "node:net";
 import { Aedes } from "aedes";
 import mqtt from "mqtt";
-import { MqttBridge, redactUrl, type KettleSource } from "./mqtt-bridge.js";
+import {
+  MqttBridge,
+  nextPollDelay,
+  redactUrl,
+  type KettleSource,
+} from "./mqtt-bridge.js";
 import { createLogger } from "./logger.js";
 import { KettleTimeoutError } from "./errors.js";
 import type { KettleStatus } from "./protocol/parsers.js";
@@ -203,4 +208,19 @@ test("drops the connection when a command times out, next command redials", asyn
   );
   await bridge.stop();
   await c.endAsync();
+});
+
+test("poll delay backs off while the kettle is unreachable", () => {
+  const base = {
+    active: false,
+    activePollMs: 5_000,
+    idlePollMs: 90_000,
+    maxBackoffMs: 900_000,
+  };
+  assert.equal(nextPollDelay({ ...base, failures: 0 }), 90_000);
+  assert.equal(nextPollDelay({ ...base, failures: 1 }), 90_000);
+  assert.equal(nextPollDelay({ ...base, failures: 2 }), 180_000);
+  assert.equal(nextPollDelay({ ...base, failures: 3 }), 360_000);
+  assert.equal(nextPollDelay({ ...base, failures: 8 }), 900_000);
+  assert.equal(nextPollDelay({ ...base, active: true, failures: 0 }), 5_000);
 });
