@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createServer, type Server } from "node:net";
 import { Aedes } from "aedes";
 import mqtt from "mqtt";
-import { MqttBridge, type KettleSource } from "./mqtt-bridge.js";
+import { MqttBridge, redactUrl, type KettleSource } from "./mqtt-bridge.js";
 import { createLogger } from "./logger.js";
 import type { KettleStatus } from "./protocol/parsers.js";
 
@@ -165,4 +165,11 @@ test("busy kettle keeps availability online and retries later", async () => {
   });
   await bridge.stop();
   await sub.end();
+});
+
+test("redactUrl hides the password", () => {
+  const r = redactUrl("mqtt://hub:secret@mosquitto:1883");
+  assert.equal(r.includes("secret"), false);
+  assert.ok(r.includes("***"));
+  assert.ok(redactUrl("mqtt://mosquitto:1883").includes("mosquitto:1883"));
 });

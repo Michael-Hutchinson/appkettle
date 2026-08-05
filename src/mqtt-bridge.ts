@@ -13,6 +13,16 @@ const DISCOVERY_PREFIX = "homeassistant";
 
 const ACTIVE_STATES: ReadonlySet<string> = new Set(["Heating", "Keep Warm"]);
 
+export const redactUrl = (raw: string): string => {
+  try {
+    const u = new URL(raw);
+    if (u.password) u.password = "***";
+    return u.toString();
+  } catch {
+    return "<unparseable url>";
+  }
+};
+
 export interface BridgeKettle {
   pollStatus(): Promise<KettleStatus>;
   boil(args: { targetTemp?: number; keepWarmMinutes?: number }): Promise<void>;
@@ -201,10 +211,10 @@ export class MqttBridge {
           // A refused boil (low water) lands here; surfaced to HA as last_error.
           this.lastError = String(e);
           this.log.warn(`command ${topic} failed: ${String(e)}`);
-          await this.publishState(false);
+          await this.safePublishState(false);
         });
     });
-    this.log.info(`MQTT bridge up (${this.opts.url}), polling`);
+    this.log.info(`MQTT bridge up (${redactUrl(this.opts.url)}), polling`);
     void this.tick();
   }
 
@@ -239,9 +249,18 @@ export class MqttBridge {
       this.log.warn(`kettle unavailable this tick: ${String(e)}`);
       this.active = false;
       this.source.release();
-      await this.publishState(true);
+      await this.safePublishState(true);
     }
     this.schedule(this.active ? this.activePollMs : this.idlePollMs);
+  }
+
+  // For void-invoked paths, where a rejected publish would otherwise escape.
+  private async safePublishState(stale: boolean): Promise<void> {
+    try {
+      await this.publishState(stale);
+    } catch (e) {
+      this.log.warn(`state publish failed: ${String(e)}`);
+    }
   }
 
   private async publishState(stale: boolean): Promise<void> {
