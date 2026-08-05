@@ -1,13 +1,6 @@
-// MQTT bridge: publishes kettle state for Home Assistant (MQTT discovery)
-// and executes commands, through one polite kettle connection.
-//
-// Polling policy, because the kettle serves one client at a time:
-// - idle: poll once every idlePollMs, then release() so the phone app can
-//   have the kettle in between
-// - active (Heating / Keep Warm, or a command just ran): poll every
-//   activePollMs and hold the connection until the state settles
-// - busy (phone holds the kettle): keep the last status, mark it stale,
-//   try again next idle tick
+// Home Assistant MQTT bridge. The kettle serves one client at a time, so idle
+// polls release the connection between reads, active states (Heating / Keep
+// Warm) hold it, and a busy kettle is served stale and retried next tick.
 import mqtt from "mqtt";
 import type { Logger } from "./logger.js";
 import type { KettleStatus } from "./protocol/parsers.js";
@@ -60,8 +53,7 @@ const entity = (base: Record<string, unknown>) => ({
   ...base,
 });
 
-// One discovery message per entity, retained, so HA finds the kettle on
-// startup without this process running at that moment.
+// Retained so HA rediscovers the kettle after a restart.
 const DISCOVERY: Array<{ topic: string; payload: Record<string, unknown> }> = [
   {
     topic: `${DISCOVERY_PREFIX}/sensor/appkettle_temp/config`,
@@ -206,8 +198,7 @@ export class MqttBridge {
           this.lastError = null;
         })
         .catch(async (e) => {
-          // A refused boil (for example low water) lands here. Record it so
-          // HA can show why nothing started.
+          // A refused boil (low water) lands here; surfaced to HA as last_error.
           this.lastError = String(e);
           this.log.warn(`command ${topic} failed: ${String(e)}`);
           await this.publishState(false);
@@ -244,7 +235,7 @@ export class MqttBridge {
       await this.publishState(false);
       if (!this.active) this.source.release();
     } catch (e) {
-      // Most likely the phone app holds the kettle. Say so once, stay calm.
+      // Most likely the phone app holds the kettle.
       this.log.warn(`kettle unavailable this tick: ${String(e)}`);
       this.active = false;
       this.source.release();

@@ -28,7 +28,8 @@
   },
   "bin": {
     "appkettle-mcp": "./dist/mcp.js",
-    "appkettle-mcp-http": "./dist/mcp-http.js"
+    "appkettle-mcp-http": "./dist/mcp-http.js",
+    "appkettle-bridge": "./dist/bridge.js"
   },
   "files": [
     "dist",
@@ -36,9 +37,10 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc && chmod +x dist/mcp.js dist/mcp-http.js dist/cli.js",
+    "build": "tsc && chmod +x dist/mcp.js dist/mcp-http.js dist/cli.js dist/bridge.js",
     "dev": "tsx src/mcp.ts",
     "dev:http": "tsx src/mcp-http.ts",
+    "dev:bridge": "tsx src/bridge.ts",
     "cli": "tsx src/cli.ts",
     "discover": "tsx src/discovery.ts",
     "test": "node --import tsx --test src/*.test.ts",

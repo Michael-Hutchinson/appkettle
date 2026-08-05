@@ -1,5 +1,7 @@
-# Multi-stage build. Default CMD runs the HTTP MCP server, since stdio doesn't
-# make sense in a container — for stdio override CMD with: node dist/mcp.js
+# Multi-stage build. Default CMD runs the combined bridge entry (HTTP MCP
+# server plus the Home Assistant MQTT bridge when MQTT_URL is set). Without
+# MQTT_URL it behaves exactly like the plain HTTP server. Stdio doesn't make
+# sense in a container, so for stdio override CMD with: node dist/mcp.js
 #
 # Build:  docker build -t appkettle .
 # Run:    docker run --rm -p 8080:8080 \
@@ -26,4 +28,4 @@ COPY --from=build /app/dist ./dist
 
 EXPOSE 8080
 USER node
-CMD ["node", "dist/mcp-http.js"]
+CMD ["node", "dist/bridge.js"]

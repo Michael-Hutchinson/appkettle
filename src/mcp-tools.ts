@@ -68,11 +68,7 @@ export class KettleManager {
     this.idleTimer.unref?.();
   }
 
-  /**
-   * Close the kettle socket immediately and cancel the pending idle close.
-   * The bridge calls this straight after an idle poll so the kettle is free
-   * for the phone app between polls instead of waiting out the idle timer.
-   */
+  // Close the kettle socket now instead of waiting out the idle timer.
   release(): void {
     if (this.idleTimer) {
       clearTimeout(this.idleTimer);

@@ -140,6 +140,34 @@ curl -X POST http://<host>:8080/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}'
 ```
 
+## Home Assistant (MQTT bridge)
+
+The combined entry point (`dist/bridge.js`) runs the HTTP MCP server plus an
+MQTT bridge that publishes the kettle to Home Assistant via MQTT discovery
+(temperature, water volume, state, and a boil/stop/standby/keep warm switch).
+It's the container's default command. Without `MQTT_URL` set it behaves
+exactly like the plain HTTP server, so existing setups are unaffected.
+
+```bash
+npm run build
+MQTT_URL=mqtt://your-broker:1883 \
+MCP_AUTH_TOKEN=$(openssl rand -hex 32) \
+node dist/bridge.js
+```
+
+Config (env vars, in addition to the HTTP ones above):
+
+- `MQTT_URL`: your MQTT broker URL. If unset, the bridge is disabled and only
+  the HTTP MCP server runs.
+- `BRIDGE_IDLE_POLL_MS`: how often to poll the kettle when it's idle. Default
+  90000 (90s).
+- `BRIDGE_ACTIVE_POLL_MS`: how often to poll while heating or keeping warm.
+  Default 5000 (5s).
+
+The kettle only serves one client at a time, so the bridge polls politely: it
+releases the connection between idle polls (leaving room for the phone app)
+and only holds it while the kettle is actively heating.
+
 ## Pairing the kettle
 
 Use this when the kettle has no Wi-Fi credentials yet (new kettle, house move,
