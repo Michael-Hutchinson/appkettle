@@ -2,6 +2,7 @@
 // polls release the connection between reads, active states (Heating / Keep
 // Warm) hold it, and a busy kettle is served stale and retried next tick.
 import mqtt from "mqtt";
+import { isConnectionLossError } from "./errors.js";
 import type { Logger } from "./logger.js";
 import type { KettleStatus } from "./protocol/parsers.js";
 
@@ -211,6 +212,7 @@ export class MqttBridge {
           // A refused boil (low water) lands here; surfaced to HA as last_error.
           this.lastError = String(e);
           this.log.warn(`command ${topic} failed: ${String(e)}`);
+          if (isConnectionLossError(e)) this.source.release();
           await this.safePublishState(false);
         });
     });

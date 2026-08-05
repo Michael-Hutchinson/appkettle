@@ -3,6 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { KettleClient } from "./client.js";
+import { isConnectionLossError } from "./errors.js";
 import { loadKettleConfig, type KettleConfig } from "./config.js";
 import { discoverKettle } from "./discovery.js";
 import { type Logger } from "./logger.js";
@@ -173,19 +174,23 @@ const asError = (e: unknown) => {
   };
 };
 
-const wrap = async <T>(fn: () => Promise<T>) => {
-  try {
-    return asText(await fn());
-  } catch (e) {
-    return asError(e);
-  }
-};
+const makeWrap =
+  (manager: KettleManager) =>
+  async <T>(fn: () => Promise<T>) => {
+    try {
+      return asText(await fn());
+    } catch (e) {
+      if (isConnectionLossError(e)) manager.release();
+      return asError(e);
+    }
+  };
 
 /**
  * Build a fresh MCP server with all kettle tools registered. Both transports call this:
  * stdio uses one server for the process lifetime, HTTP creates one per session.
  */
 export const buildKettleServer = (manager: KettleManager): McpServer => {
+  const wrap = makeWrap(manager);
   const server = new McpServer({ name: "appkettle", version: VERSION });
 
   const registerSimpleAction = (

@@ -5,6 +5,7 @@ import { Aedes } from "aedes";
 import mqtt from "mqtt";
 import { MqttBridge, redactUrl, type KettleSource } from "./mqtt-bridge.js";
 import { createLogger } from "./logger.js";
+import { KettleTimeoutError } from "./errors.js";
 import type { KettleStatus } from "./protocol/parsers.js";
 
 const log = createLogger("error");
@@ -24,6 +25,7 @@ const fakeSource = () => {
   const calls: string[] = [];
   let next: KettleStatus = status();
   let busy = false;
+  let commandError: Error | null = null;
   const client = {
     pollStatus: async () => {
       if (busy) throw new Error("timeout");
@@ -32,6 +34,7 @@ const fakeSource = () => {
     },
     boil: async (args: { targetTemp?: number }) => {
       calls.push(`boil:${args.targetTemp}`);
+      if (commandError) throw commandError;
       // Real kettle starts heating on boil; without this the bridge's next
       // active poll would see Standby and fall back to idle cadence.
       next = status({ state: "Heating", power: "ON" });
@@ -54,6 +57,7 @@ const fakeSource = () => {
     calls,
     setStatus: (s: KettleStatus) => (next = s),
     setBusy: (b: boolean) => (busy = b),
+    setCommandError: (e: Error | null) => (commandError = e),
   };
 };
 
@@ -172,4 +176,31 @@ test("redactUrl hides the password", () => {
   assert.equal(r.includes("secret"), false);
   assert.ok(r.includes("***"));
   assert.ok(redactUrl("mqtt://mosquitto:1883").includes("mosquitto:1883"));
+});
+
+test("drops the connection when a command times out, next command redials", async () => {
+  const fake = fakeSource();
+  const bridge = new MqttBridge(fake.source, log, {
+    url,
+    idlePollMs: 60000,
+    activePollMs: 100,
+  });
+  await bridge.start();
+  const c = mqtt.connect(url);
+  await new Promise<void>((res) => c.on("connect", () => res()));
+
+  fake.setCommandError(new KettleTimeoutError("41", 5000));
+  await c.publishAsync("appkettle/cmd/boil", "PRESS");
+  await until(() => fake.calls.includes("release"));
+
+  fake.setCommandError(null);
+  const before = fake.calls.filter((x) => x.startsWith("ensure")).length;
+  await c.publishAsync("appkettle/cmd/boil", "PRESS");
+  await until(
+    () =>
+      fake.calls.filter((x) => x.startsWith("boil")).length >= 2 &&
+      fake.calls.filter((x) => x.startsWith("ensure")).length > before,
+  );
+  await bridge.stop();
+  await c.endAsync();
 });
