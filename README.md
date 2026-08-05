@@ -148,6 +148,21 @@ MQTT bridge that publishes the kettle to Home Assistant via MQTT discovery
 It's the container's default command. Without `MQTT_URL` set it behaves
 exactly like the plain HTTP server, so existing setups are unaffected.
 
+There is a prebuilt multi-arch image (amd64 and arm64, so it runs on a
+Raspberry Pi):
+
+```bash
+docker run -d --name appkettle \
+  -p 8080:8080 \
+  -e KETTLE_IP=<your-kettle-ip> \
+  -e KETTLE_IMEI=<your-kettle-imei> \
+  -e MQTT_URL=mqtt://your-broker:1883 \
+  -e MCP_AUTH_TOKEN=<random-token> \
+  ghcr.io/michael-hutchinson/appkettle:latest
+```
+
+Or from source:
+
 ```bash
 npm run build
 MQTT_URL=mqtt://your-broker:1883 \
@@ -207,17 +222,21 @@ src/
   cli.ts                     entry: status / boil / stop / standby / setup / discover
   mcp.ts                     entry: stdio MCP server
   mcp-http.ts                entry: HTTP MCP server (with /healthz)
+  mqtt-bridge.ts             Home Assistant MQTT bridge (discovery + commands)
+  bridge.ts                  entry: HTTP MCP server + MQTT bridge combined
   mcp-tools.ts               shared KettleManager + tool registration
-  *.test.ts                  unit + integration tests (32 total)
+  *.test.ts                  unit + integration tests (38 total)
 .github/
-  workflows/ci.yml           lint → typecheck → test on every push
+  workflows/ci.yml           lint -> typecheck -> test on every push
+  workflows/release-image.yml multi-arch Docker image to GHCR on version tags
   dependabot.yml             weekly npm + monthly actions
 .husky/pre-commit            lint-staged: ESLint + Prettier on staged files
-Dockerfile                   multi-stage Alpine build, runs the HTTP server
+Dockerfile                   multi-stage Alpine build, runs the combined bridge entry
 ```
 
 Three concentric layers: `protocol/` is pure functions, `client.ts` adds TCP +
-state, the entry points (`cli`, `mcp`, `mcp-http`) wire everything to a transport.
+state, the entry points (`cli`, `mcp`, `mcp-http`, `bridge`) wire everything to
+a transport.
 Adding a new transport (e.g. WebSocket) means a new `mcp-*.ts` file that calls
 `buildKettleServer(manager)` from `mcp-tools.ts`; nothing else has to change.
 
