@@ -1,6 +1,6 @@
 {
   "name": "appkettle",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Local control bridge for the AppKettle smart kettle (defunct vendor). Reverse-engineered Across protocol over TCP/6002. Exposes an MCP server.",
   "type": "module",
   "private": true,
