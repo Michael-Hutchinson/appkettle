@@ -23,7 +23,8 @@ ENV MCP_HTTP_HOST=0.0.0.0
 ENV MCP_HTTP_PORT=8080
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+# --ignore-scripts: the husky prepare hook is a dev tool and its binary is not installed here
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY --from=build /app/dist ./dist
 
 EXPOSE 8080
