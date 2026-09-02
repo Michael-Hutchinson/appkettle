@@ -70,12 +70,12 @@
     "@types/express": "^5.0.6",
     "@types/node": "^22.10.0",
     "aedes": "^1.1.1",
-    "eslint": "^10.3.0",
+    "eslint": "^10.9.1",
     "husky": "^9.1.7",
-    "lint-staged": "^17.0.2",
+    "lint-staged": "^17.4.1",
     "prettier": "^3.4.2",
-    "tsx": "^4.19.2",
+    "tsx": "^4.23.13",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.2"
+    "typescript-eslint": "^8.68.0"
   }
 }
